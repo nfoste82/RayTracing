@@ -9,8 +9,12 @@ public class GameManager : MonoBehaviour
     
     private void Start()
     {
-        var width = 250;
-        var height = 250;
+        var cameraHeight = Camera.main.orthographicSize * 2;
+        var cameraSize = new Vector2(Camera.main.aspect * cameraHeight, cameraHeight);
+        
+        var width = Screen.currentResolution.width;
+        var height = Screen.currentResolution.height;
+        
         _mainTexture = new Texture2D(width, height)
         {
             filterMode = FilterMode.Point,
@@ -21,6 +25,19 @@ public class GameManager : MonoBehaviour
             _mainTexture,
             new Rect(0.0f, 0.0f, _mainTexture.width, _mainTexture.height),
             new Vector2(0.5f, 0.5f), 1.0f);
+        spriteRenderer.sprite = sprite;
+
+        var spriteSize = spriteRenderer.sprite.bounds.size;
+        
+        var scale = transform.localScale;
+        if (cameraSize.x >= cameraSize.y) { // Landscape (or equal)
+            scale *= cameraSize.x / spriteSize.x;
+        } else { // Portrait
+            scale *= cameraSize.y / spriteSize.y;
+        }
+        
+        transform.position = Vector2.zero; // Optional
+        transform.localScale = scale;
 
         spriteRenderer.sprite = sprite;
 

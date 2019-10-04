@@ -11,11 +11,11 @@ namespace Shapes
 
         public RayMaterial Material { get; set; }
 
-        public (bool intersected, double hitDistance) Intersect(Vector3 origin, Vector3 rayDir, float? maxDistance = null)
+        public static (bool intersected, double hitDistance) Intersect(Vector3 origin, Sphere sphere, Vector3 rayDir, float? maxDistance = null)
         {
-            var diffToSphere = origin - Position; 
+            var diffToSphere = origin - sphere.Position; 
             var b = Vector3.Dot(diffToSphere, rayDir); 
-            var c = diffToSphere.sqrMagnitude - Radius * Radius; 
+            var c = diffToSphere.sqrMagnitude - sphere.Radius * sphere.Radius; 
 
             // Exit if ray’s origin outside sphere (c > 0) and ray is pointing away from sphere (b > 0) 
             if (c > 0.0f && b > 0.0f)
