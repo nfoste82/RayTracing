@@ -12,6 +12,8 @@ namespace RayTracer
             var cameraOrigin = camera.transform.position;
             var cameraNearPlane = camera.nearClipPlane;
 
+            var skyColor = new Color(0.4f, 0.8f, 1.0f, 1.0f);
+
             for (var x = 0; x < textureWidth; ++x)
             {
                 for (var y = 0; y < textureHeight; ++y)
@@ -19,18 +21,28 @@ namespace RayTracer
                     var pixelPoint = camera.ScreenToWorldPoint(new Vector3(x, y, cameraNearPlane));
                     var rayDirection = (pixelPoint - cameraOrigin).normalized;
                     
-                    float nearestPt = float.MaxValue;
+                    double nearestPt = float.MaxValue;
+
+                    (Sphere sphere, Vector3 intersectionPt) nearestIntersection = default;
+                    
                     foreach (var sphere in scene.Spheres)
                     {
-                        var intersect = Sphere.Intersect(pixelPoint, sphere, rayDirection, null);
-                        if (intersect.intersected)
+                        var (intersected, hitDistance) = Sphere.Intersect(pixelPoint, sphere, rayDirection, null);
+
+                        if (intersected && hitDistance < nearestPt)
                         {
-                            texture.SetPixel(x, y, Color.white);
+                            nearestIntersection = (sphere, (pixelPoint + (rayDirection * (float)hitDistance)));
+                            nearestPt = hitDistance;
                         }
-                        else
-                        {
-                            texture.SetPixel(x, y, Color.black);
-                        }
+                    }
+
+                    if (!nearestIntersection.Equals(default))
+                    {
+                        texture.SetPixel(x, y, nearestIntersection.sphere.Material.Color);
+                    }
+                    else
+                    {
+                        texture.SetPixel(x, y, skyColor);
                     }
                 }
             }
