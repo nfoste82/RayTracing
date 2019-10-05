@@ -13,7 +13,7 @@ namespace RayTracer
             var sphere1 = new Sphere
             {
                 Position = new Vector3(5.0f, 5.0f, 5.0f),
-                Radius = 50f,
+                Radius = 5f,
                 Material = new RayMaterial
                 {
                     Color = new Color(1f, 0f, 0f, 1f),

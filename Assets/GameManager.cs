@@ -24,7 +24,8 @@ public class GameManager : MonoBehaviour
         var sprite = Sprite.Create(
             _mainTexture,
             new Rect(0.0f, 0.0f, _mainTexture.width, _mainTexture.height),
-            new Vector2(0.5f, 0.5f), 1.0f);
+            new Vector2(0.5f, 0.5f), 
+            1.0f);
         spriteRenderer.sprite = sprite;
 
         var spriteSize = spriteRenderer.sprite.bounds.size;
@@ -36,7 +37,6 @@ public class GameManager : MonoBehaviour
             scale *= cameraSize.y / spriteSize.y;
         }
         
-        transform.position = Vector2.zero; // Optional
         transform.localScale = scale;
 
         spriteRenderer.sprite = sprite;
