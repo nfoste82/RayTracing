@@ -38,6 +38,18 @@ namespace RayTracer
             };
             Spheres.Add(sphere2);
             
+            var sphere3 = new Sphere
+            {
+                Position = new Vector3(-8.0f, -2.0f, 16.0f),
+                Radius = 4f,
+                Material = new RayMaterial
+                {
+                    Color = Color.blue,
+                    Opacity = 1f
+                }
+            };
+            Spheres.Add(sphere3);
+            
             
             
 

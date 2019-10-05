@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Shapes;
 using UnityEngine;
 
@@ -34,10 +35,24 @@ namespace RayTracer
                         texture.SetPixel(x, y, skyColor);
                     }
                     else
-                    {
-                        var lights = GetLightsHittingPoint(scene.Lights, scene.Spheres, nearestIntersection.intersectionPt);
+                    {    
+                        var lights = GetLightsHittingPoint(
+                            scene.Lights,
+                            scene.Spheres,
+                            nearestIntersection.intersectionPt,
+                            nearestIntersection.normal);
 
-                        var finalColor = MaterialColorAfterLighting(nearestIntersection.collider.Material.Color, lights);
+                        var colors = new List<Color>();
+
+                        foreach (var light in lights)
+                        {
+                            var lightDir = (nearestIntersection.intersectionPt - light.Position).normalized;
+                            var lightPercentageThatHits = Vector3.Dot(lightDir, nearestIntersection.normal) * -1;
+                            
+                            colors.Add(light.Material.Color * lightPercentageThatHits);
+                        }
+
+                        var finalColor = MaterialColorAfterLighting(nearestIntersection.collider.Material.Color, colors);
                         
                         texture.SetPixel(x, y, finalColor);
                     }
@@ -47,42 +62,51 @@ namespace RayTracer
             texture.Apply();
         }
 
-        private static (Collider collider, Vector3 intersectionPt) GetNearestIntersection(
+        private static (Collider collider, Vector3 intersectionPt, Vector3 normal) GetNearestIntersection(
             List<Collider> colliders, 
             Vector3 pixelPoint,
             Vector3 rayDirection, 
-            ref double nearestPt)
+            ref double nearestDistance)
         {
-            (Collider collider, Vector3 intersectionPt) nearestIntersection = default;
+            (Collider collider, Vector3 intersectionPt, Vector3 normal) nearestIntersection = default;
             
             foreach (var collider in colliders)
             {
                 var (intersected, hitDistance) = Collider.Intersect(pixelPoint, collider, rayDirection);
 
-                if (intersected && hitDistance < nearestPt)
+                if (intersected && hitDistance < nearestDistance)
                 {
-                    nearestIntersection = (collider, (pixelPoint + (rayDirection * (float) hitDistance)));
-                    nearestPt = hitDistance;
+                    var intersectionPt = (pixelPoint + (rayDirection * (float) hitDistance));
+                    var normal = Collider.GetNormalAtPoint(intersectionPt, collider);
+                    
+                    nearestIntersection = (collider, (pixelPoint + (rayDirection * (float) hitDistance)), normal);
+                    nearestDistance = hitDistance;
                 }
             }
 
             return nearestIntersection;
         }
 
-        private static IEnumerable<Collider> GetLightsHittingPoint(List<Collider> lights, List<Collider> nonLights, Vector3 point)
+        private static IEnumerable<Collider> GetLightsHittingPoint(List<Collider> lights, List<Collider> nonLights, Vector3 point, Vector3 ptNormal)
         {
             // TODO: If lights have a width then you have to cast to the sides of the light to see if any of them hit
             
             foreach (var light in lights)
             {
-                var lightToPt = (light.Position - point);
-                var lightHitDistance = lightToPt.magnitude;
-                var lightRayDirection = lightToPt.normalized;
+                var ptToLight = (light.Position - point);
+
+                if (Vector3.Dot(ptNormal, ptToLight) < 0.0f)
+                {
+                    continue;
+                }
+                
+                var lightHitDistance = ptToLight.magnitude;
+                var rayDirection = ptToLight.normalized;
                 
                 var lightWasHit = true;
                 foreach (var nonLight in nonLights)
                 {
-                    var (intersected, hitDistance) = Collider.Intersect(point, nonLight, lightRayDirection);
+                    var (intersected, hitDistance) = Collider.Intersect(point, nonLight, rayDirection);
 
                     if (intersected && hitDistance < lightHitDistance)
                     {
@@ -98,13 +122,12 @@ namespace RayTracer
             }
         }
 
-        private static Color MaterialColorAfterLighting(Color surfaceColor, IEnumerable<Collider> lights)
+        private static Color MaterialColorAfterLighting(Color surfaceColor, List<Color> lightColors)
         {
             var lightColor = Color.black;
 
-            foreach (var light in lights)
+            foreach (var color in lightColors)
             {
-                var color = light.Material.Color;
                 lightColor.r = Math.Max(lightColor.r, color.r);
                 lightColor.g = Math.Max(lightColor.g, color.g);
                 lightColor.b = Math.Max(lightColor.b, color.b);

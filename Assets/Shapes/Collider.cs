@@ -21,5 +21,15 @@ namespace Shapes
 
             return default;
         }
+
+        public static Vector3 GetNormalAtPoint(Vector3 point, Collider collider)
+        {
+            if (collider is Sphere sphere)
+            {
+                return (point - collider.Position).normalized;
+            }
+            
+            return Vector3.zero;
+        }
     }
 }
