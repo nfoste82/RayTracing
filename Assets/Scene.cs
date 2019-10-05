@@ -2,13 +2,15 @@ using System.Collections.Generic;
 using Shapes;
 using UnityEngine;
 
+using Collider = Shapes.Collider;
+
 namespace RayTracer
 {
     public class Scene
     {
-        public readonly List<Sphere> Spheres = new List<Sphere>();
-        
-        public readonly List<Sphere> Lights = new List<Sphere>();
+        public readonly List<Collider> Spheres = new List<Collider>();
+        public readonly List<Collider> Lights = new List<Collider>();
+        public readonly List<Collider> AllColliders = new List<Collider>();
 
         public void CreateTestScene()
         {
@@ -41,8 +43,8 @@ namespace RayTracer
 
             var light1 = new Sphere
             {
-                Position = new Vector3(0.0f, 50.0f, 0.0f),
-                Radius = 5f,
+                Position = new Vector3(-20.0f, 50.0f, -20.0f),
+                Radius = 1f,
                 Material = new RayMaterial
                 {
                     Color = Color.white,
@@ -50,6 +52,9 @@ namespace RayTracer
                 }
             };
             Lights.Add(light1);
+            
+            AllColliders.AddRange(Spheres);
+            AllColliders.AddRange(Lights);
         }
     }
 }

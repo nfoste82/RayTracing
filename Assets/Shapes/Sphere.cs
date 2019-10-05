@@ -1,21 +1,28 @@
 using System;
-using RayTracer;
 using UnityEngine;
 
 namespace Shapes
 {
-    public class Sphere
+    public class Sphere : Collider
     {
-        public Vector3 Position { get; set; }
-        public float Radius { get; set; }
+        public float Radius
+        {
+            get => _radius;
+            set
+            {
+                _radius = value;
+                RadiusSquared = _radius * _radius;
+            }
+        }
+        private float _radius;
 
-        public RayMaterial Material { get; set; }
+        public float RadiusSquared { get; set; }
 
-        public static (bool intersected, double hitDistance) Intersect(Vector3 origin, Sphere sphere, Vector3 rayDir, float? maxDistance = null)
+        public static (bool intersected, double hitDistance) Intersect(Vector3 origin, Sphere sphere, Vector3 rayDir)
         {
             var diffToSphere = origin - sphere.Position; 
             var b = Vector3.Dot(diffToSphere, rayDir); 
-            var c = diffToSphere.sqrMagnitude - sphere.Radius * sphere.Radius; 
+            var c = diffToSphere.sqrMagnitude - sphere.RadiusSquared; 
 
             // Exit if ray’s origin outside sphere (c > 0) and ray is pointing away from sphere (b > 0) 
             if (c > 0.0f && b > 0.0f)
@@ -38,6 +45,10 @@ namespace Shapes
             if (hitDistance < 0.0)
             {
                 hitDistance = 0.0;
+            }
+            else
+            {
+                hitDistance -= 0.001f;    // Move the intersection point away from the sphere just a bit to avoid precision issues
             }
 
             return (true, hitDistance);
