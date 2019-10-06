@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 
 namespace Shapes
@@ -23,9 +22,9 @@ namespace Shapes
 
         private float RadiusSquared;
 
-        public static float Intersect(Vector3 origin, Sphere sphere, Vector3 rayDir)
+        public override float Intersect(Vector3 origin, Vector3 rayDir)
         {
-            var diffToSphere = sphere.Position - origin;
+            var diffToSphere = Position - origin;
             var b = Vector3.Dot(diffToSphere, rayDir);
 
             // ray is pointing away from sphere (b < 0)
@@ -34,7 +33,7 @@ namespace Shapes
                 return -1.0f;
             }
             
-            var c = diffToSphere.sqrMagnitude - sphere.RadiusSquared;
+            var c = diffToSphere.sqrMagnitude - RadiusSquared;
 
             var discriminant = (b * b) - c; 
 

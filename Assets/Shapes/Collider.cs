@@ -11,30 +11,16 @@ namespace Shapes
 
         public abstract float GetBoundingRadius();
 
-        public static float Intersect(
-            Vector3 origin, 
-            Collider collider,
-            Vector3 rayDir)
+        public abstract float Intersect(
+            Vector3 origin,
+            Vector3 rayDir);
+
+        public Vector3 GetNormalAtPoint(Vector3 point)
         {
-            if (collider is Sphere sphere)
-            {
-                return Sphere.Intersect(origin, sphere, rayDir);
-            }
+            var diff = (point - Position);
+            diff.Normalize();
 
-            return default;
-        }
-
-        public static Vector3 GetNormalAtPoint(Vector3 point, Collider collider)
-        {
-            if (collider is Sphere)
-            {
-                var diff = (point - collider.Position);
-                diff.Normalize();
-
-                return diff;
-            }
-            
-            return Vector3.zero;
+            return diff;
         }
     }
 }
