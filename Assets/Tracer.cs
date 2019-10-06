@@ -8,6 +8,9 @@ namespace RayTracer
 {
     public class Tracer
     {
+        private bool interlacingEnabled = true;
+        private bool evenLines = true;
+        
         public void ProcessRenderTexture(Texture2D texture, Scene scene, Camera camera)
         {
             var textureWidth = texture.width;
@@ -17,12 +20,30 @@ namespace RayTracer
 
             var skyColor = new Color(0.4f, 0.8f, 1.0f, 1.0f);
 
+            evenLines = !evenLines;
+
             for (var x = 0; x < textureWidth; ++x)
             {
                 for (var y = 0; y < textureHeight; ++y)
                 {
+//                    if (interlacingEnabled)
+//                    {
+//                        if (evenLines && y % 2 != 0)
+//                        {
+//                            texture.SetPixel(x, y, Color.black);
+//                            continue;
+//                        }
+//                        
+//                        if (!evenLines && y % 2 == 0)
+//                        {
+//                            texture.SetPixel(x, y, Color.black);
+//                            continue;
+//                        }
+//                    }
+
                     var pixelPoint = camera.ScreenToWorldPoint(new Vector3(x, y, cameraNearPlane));
-                    var rayDirection = (pixelPoint - cameraOrigin).normalized;
+                    var rayDirection = (pixelPoint - cameraOrigin);
+                    rayDirection.Normalize();
                     
                     double nearestPt = float.MaxValue;
 
@@ -40,7 +61,7 @@ namespace RayTracer
                             nearestIntersection.intersectionPt,
                             nearestIntersection.normal);
 
-                            var finalColor = nearestIntersection.collider.Material.Color * accumLightColor;
+                        var finalColor = nearestIntersection.collider.Material.Color * accumLightColor;
                         
                         texture.SetPixel(x, y, finalColor);
                     }
@@ -60,14 +81,14 @@ namespace RayTracer
             
             foreach (var collider in colliders)
             {
-                var (intersected, hitDistance) = Collider.Intersect(pixelPoint, collider, rayDirection);
+                var hitDistance = Collider.Intersect(pixelPoint, collider, rayDirection);
 
-                if (intersected && hitDistance < nearestDistance)
+                if (hitDistance >= 0.0f && hitDistance < nearestDistance)
                 {
-                    var intersectionPt = (pixelPoint + (rayDirection * (float) hitDistance));
+                    var intersectionPt = (pixelPoint + (rayDirection * hitDistance));
                     var normal = Collider.GetNormalAtPoint(intersectionPt, collider);
                     
-                    nearestIntersection = (collider, (pixelPoint + (rayDirection * (float) hitDistance)), normal);
+                    nearestIntersection = (collider, intersectionPt, normal);
                     nearestDistance = hitDistance;
                 }
             }
@@ -87,22 +108,33 @@ namespace RayTracer
             
             foreach (var light in lights)
             {
-                var ptToLight = (light.Position - point);
+                var ptToLight = light.Position - point;
 
+                // If the point is facing away from the light then we can skip it
                 if (Vector3.Dot(ptNormal, ptToLight) < 0.0f)
                 {
                     continue;
                 }
                 
                 var lightHitDistance = ptToLight.magnitude;
-                var rayDirection = ptToLight.normalized;
+                var rayDirection = ptToLight;
+                rayDirection.Normalize();
                 
                 var lightWasHit = true;
                 foreach (var nonLight in nonLights)
                 {
-                    var (intersected, hitDistance) = Collider.Intersect(point, nonLight, rayDirection);
+                    // This may help improve performance in a more dense scene. But in the current demo scene it hurts performance
+//                    var ptToNonLight = nonLight.Position - point;
+//
+//                    var minDistanceToCollider = ptToNonLight.magnitude - nonLight.GetBoundingRadius();
+//                    if (minDistanceToCollider > lightHitDistance)
+//                    {
+//                        continue;
+//                    }
+                    
+                    var hitDistance = Collider.Intersect(point, nonLight, rayDirection);
 
-                    if (intersected && hitDistance < lightHitDistance)
+                    if (hitDistance >= 0.0f && hitDistance < lightHitDistance)
                     {
                         lightWasHit = false;
                         break;
@@ -122,20 +154,6 @@ namespace RayTracer
             }
 
             return ptLightColor;
-        }
-
-        private static Color MaterialColorAfterLighting(Color surfaceColor, List<Color> lightColors)
-        {
-            var lightColor = Color.black;
-
-            foreach (var color in lightColors)
-            {
-                lightColor.r = Math.Max(lightColor.r, color.r);
-                lightColor.g = Math.Max(lightColor.g, color.g);
-                lightColor.b = Math.Max(lightColor.b, color.b);
-            }
-
-            return lightColor * surfaceColor;
         }
     }
 }

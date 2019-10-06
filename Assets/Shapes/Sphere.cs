@@ -5,6 +5,11 @@ namespace Shapes
 {
     public class Sphere : Collider
     {
+        public override float GetBoundingRadius()
+        {
+            return _radius;
+        }
+        
         public float Radius
         {
             get => _radius;
@@ -16,42 +21,39 @@ namespace Shapes
         }
         private float _radius;
 
-        public float RadiusSquared { get; set; }
+        private float RadiusSquared;
 
-        public static (bool intersected, double hitDistance) Intersect(Vector3 origin, Sphere sphere, Vector3 rayDir)
+        public static float Intersect(Vector3 origin, Sphere sphere, Vector3 rayDir)
         {
-            var diffToSphere = origin - sphere.Position; 
-            var b = Vector3.Dot(diffToSphere, rayDir); 
-            var c = diffToSphere.sqrMagnitude - sphere.RadiusSquared; 
+            var diffToSphere = sphere.Position - origin;
+            var b = Vector3.Dot(diffToSphere, rayDir);
 
-            // Exit if ray’s origin outside sphere (c > 0) and ray is pointing away from sphere (b > 0) 
-            if (c > 0.0f && b > 0.0f)
+            // ray is pointing away from sphere (b < 0)
+            if (b < 0f)
             {
-                return (false, -1.0);
+                return -1.0f;
             }
+            
+            var c = diffToSphere.sqrMagnitude - sphere.RadiusSquared;
 
             var discriminant = (b * b) - c; 
 
             // A negative discriminant corresponds to ray missing sphere 
             if (discriminant < 0.0f)
             {
-                return (false, -1.0);
+                return -1.0f;
             } 
 
             // Ray now found to intersect sphere, compute smallest t value of intersection
-            var hitDistance = -b - Math.Sqrt(discriminant);
+            var hitDistance = b - Mathf.Sqrt(discriminant) - 0.001f;
 
             // If hit distance is negative, ray started inside sphere so clamp it to zero
-            if (hitDistance < 0.0)
+            if (hitDistance < 0.0f)
             {
-                hitDistance = 0.0;
-            }
-            else
-            {
-                hitDistance -= 0.001f;    // Move the intersection point away from the sphere just a bit to avoid precision issues
+                hitDistance = 0.0f;
             }
 
-            return (true, hitDistance);
+            return hitDistance;
         }
     }
 }
