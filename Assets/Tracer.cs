@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using Shapes;
 using UnityEngine;
 
 using Collider = Shapes.Collider;
@@ -35,28 +33,14 @@ namespace RayTracer
                         texture.SetPixel(x, y, skyColor);
                     }
                     else
-                    {    
-                        var lights = GetLightsHittingPoint(
+                    {
+                        var accumLightColor = LightColorAffectsHitPoint(
                             scene.Lights,
                             scene.Spheres,
                             nearestIntersection.intersectionPt,
                             nearestIntersection.normal);
 
-                        var totalLightColor = Color.black;
-
-                        foreach (var light in lights)
-                        {
-                            var lightDir = (nearestIntersection.intersectionPt - light.Position).normalized;
-                            var lightPercentageThatHits = Vector3.Dot(lightDir, nearestIntersection.normal) * -1;
-                            
-                            var lightColor = light.Material.Color * lightPercentageThatHits;
-                                
-                            totalLightColor.r = Math.Max(lightColor.r, totalLightColor.r);
-                            totalLightColor.g = Math.Max(lightColor.g, totalLightColor.g);
-                            totalLightColor.b = Math.Max(lightColor.b, totalLightColor.b);
-                        }
-
-                        var finalColor = nearestIntersection.collider.Material.Color * totalLightColor;
+                            var finalColor = nearestIntersection.collider.Material.Color * accumLightColor;
                         
                         texture.SetPixel(x, y, finalColor);
                     }
@@ -91,9 +75,15 @@ namespace RayTracer
             return nearestIntersection;
         }
 
-        private static IEnumerable<Collider> GetLightsHittingPoint(List<Collider> lights, List<Collider> nonLights, Vector3 point, Vector3 ptNormal)
+        private static Color LightColorAffectsHitPoint(
+            List<Collider> lights, 
+            List<Collider> nonLights, 
+            Vector3 point, 
+            Vector3 ptNormal)
         {
             // TODO: If lights have a width then you have to cast to the sides of the light to see if any of them hit
+
+            Color ptLightColor = Color.black;
             
             foreach (var light in lights)
             {
@@ -121,9 +111,17 @@ namespace RayTracer
 
                 if (lightWasHit)
                 {
-                    yield return light;
+                    var lightPercentageThatHits = Vector3.Dot(rayDirection, ptNormal);
+                            
+                    var lightColor = light.Material.Color * lightPercentageThatHits;
+                                
+                    ptLightColor.r = Math.Max(lightColor.r, ptLightColor.r);
+                    ptLightColor.g = Math.Max(lightColor.g, ptLightColor.g);
+                    ptLightColor.b = Math.Max(lightColor.b, ptLightColor.b);
                 }
             }
+
+            return ptLightColor;
         }
 
         private static Color MaterialColorAfterLighting(Color surfaceColor, List<Color> lightColors)
