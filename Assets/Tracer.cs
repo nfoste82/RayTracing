@@ -67,18 +67,20 @@ namespace RayTracer
                     else
                     {
                         //Profiler.BeginSample("LightColorAffectsHitPoint");
-                        var accumLightColor = LightColorAffectsHitPoint(
+                        var (diffuse, specular) = LightColorAffectsHitPoint(
                             scene.Lights,
                             scene.Spheres,
                             nearestIntersection.intersectionPt,
-                            nearestIntersection.normal);
+                            nearestIntersection.normal,
+                            rayDirection,
+                            nearestIntersection.collider.Material);
                         //Profiler.EndSample();
-                        
-                        accumLightColor.r = Math.Max(accumLightColor.r, _skyDarkColor.r);
-                        accumLightColor.g = Math.Max(accumLightColor.g, _skyDarkColor.g);
-                        accumLightColor.b = Math.Max(accumLightColor.b, _skyDarkColor.b);
 
-                        var finalColor = nearestIntersection.collider.Material.Color * accumLightColor;
+                        diffuse.r = Math.Max(diffuse.r, _skyDarkColor.r);
+                        diffuse.g = Math.Max(diffuse.g, _skyDarkColor.g);
+                        diffuse.b = Math.Max(diffuse.b, _skyDarkColor.b);
+
+                        var finalColor = nearestIntersection.collider.Material.Color * diffuse + specular;
                         
                         texture.SetPixel(x, y, finalColor);
                     }
@@ -113,27 +115,30 @@ namespace RayTracer
             return (nearestCollider, nearestPt, normal);
         }
 
-        private static Color LightColorAffectsHitPoint(
+        private static (Color diffuse, Color specular) LightColorAffectsHitPoint(
             List<Collider> lights, 
             List<Collider> nonLights, 
             Vector3 point, 
-            Vector3 ptNormal)
+            Vector3 ptNormal,
+            Vector3 cameraRayDirection,
+            RayMaterial materialHit)
         {
             // TODO: If lights have a width then you have to cast to the sides of the light to see if any of them hit
 
-            Color ptLightColor = Color.black;
+            Color diffuseColor = Color.black;
+            Color specColor = Color.black;
             
             foreach (var light in lights)
             {
-                var rayDirection = light.Position - point;
+                var ptToLight = light.Position - point;
 
                 // If the point is facing away from the light then we can skip it
-                if (Vector3.Dot(rayDirection, ptNormal) < 0.0f)
+                if (Vector3.Dot(ptToLight, ptNormal) < 0.0f)
                 {
                     continue;
                 }
                 
-                var lightHitDistance = Vector3Extensions.NormalizeReturnMag(ref rayDirection);
+                var lightHitDistance = Vector3Extensions.NormalizeReturnMag(ref ptToLight);
 
                 var lightWasHit = true;
                 foreach (var nonLight in nonLights)
@@ -147,7 +152,7 @@ namespace RayTracer
 //                        continue;
 //                    }
                     
-                    var hitDistance = nonLight.Intersect(point, rayDirection);
+                    var hitDistance = nonLight.Intersect(point, ptToLight);
 
                     if (hitDistance >= 0.0f && hitDistance < lightHitDistance)
                     {
@@ -158,17 +163,48 @@ namespace RayTracer
 
                 if (lightWasHit)
                 {
-                    var lightPercentageThatHits = Vector3.Dot(rayDirection, ptNormal);
-                            
-                    var lightColor = light.Material.Color * lightPercentageThatHits;
-                                
-                    ptLightColor.r = Math.Max(lightColor.r, ptLightColor.r);
-                    ptLightColor.g = Math.Max(lightColor.g, ptLightColor.g);
-                    ptLightColor.b = Math.Max(lightColor.b, ptLightColor.b);
+                    
+                    
+//                        float3 r = normalize(2 * dot(light, normal) * normal - light);
+//                        float3 v = normalize(mul(normalize(ViewVector), World));
+//
+//                        float dotProduct = dot(r, v);
+//                        float4 specular = SpecularIntensity * SpecularColor * max(pow(dotProduct, Shininess), 0) * length(input.Color);
+
+                    var rayNormalDot = Vector3.Dot(ptToLight, ptNormal);
+                    var reflect = Vector3.Reflect(ptToLight, ptNormal);
+                    var viewDot = Vector3.Dot(cameraRayDirection, reflect);
+
+                    if (viewDot > 0.0f)
+                    {
+                        var pow = (float) Math.Pow(viewDot, Math.Max(64 * (1 - materialHit.Roughness), 1));
+                        var specAmount = Math.Max(pow, 0);
+                        if (specAmount > 0.01f)
+                        {
+                            var lightSpecColor = light.Material.Color * specAmount * (1 - materialHit.Roughness);
+
+                            specColor.r = Math.Max(lightSpecColor.r, specColor.r);
+                            specColor.g = Math.Max(lightSpecColor.g, specColor.g);
+                            specColor.b = Math.Max(lightSpecColor.b, specColor.b);
+                        }
+                    }
+                    
+                    var lightPercentageThatHits = rayNormalDot;
+                    var lightDiffuseColor = light.Material.Color * lightPercentageThatHits;
+                    
+
+                    diffuseColor.r = Math.Max(lightDiffuseColor.r, diffuseColor.r);
+                    diffuseColor.g = Math.Max(lightDiffuseColor.g, diffuseColor.g);
+                    diffuseColor.b = Math.Max(lightDiffuseColor.b, diffuseColor.b);
                 }
             }
 
-            return ptLightColor;
+            return (diffuseColor, specColor);
+        }
+
+        public static Vector3 ColorToVector3(Color color)
+        {
+            return new Vector3(color.r, color.g, color.b);
         }
     }
 }

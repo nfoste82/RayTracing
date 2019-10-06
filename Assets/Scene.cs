@@ -16,11 +16,12 @@ namespace RayTracer
         {
             var sphere1 = new Sphere
             {
-                Position = new Vector3(5.0f, 5.0f, 5.0f),
+                Position = new Vector3(8.0f, 5.0f, 5.0f),
                 Radius = 5f,
                 Material = new RayMaterial
                 {
                     Color = Color.red,
+                    Roughness = 0.95f,
                     Opacity = 1f
                 }
             };
@@ -33,6 +34,7 @@ namespace RayTracer
                 Material = new RayMaterial
                 {
                     Color = Color.yellow,
+                    Roughness = 0.6f,
                     Opacity = 1f
                 }
             };
@@ -40,15 +42,29 @@ namespace RayTracer
             
             var sphere3 = new Sphere
             {
-                Position = new Vector3(-8.0f, -2.0f, 16.0f),
+                Position = new Vector3(-10.0f, 6.0f, 16.0f),
                 Radius = 4f,
                 Material = new RayMaterial
                 {
                     Color = Color.blue,
+                    Roughness = 0.05f,
                     Opacity = 1f
                 }
             };
             Spheres.Add(sphere3);
+            
+            var sphere4 = new Sphere
+            {
+                Position = new Vector3(-5.0f, -1.0f, 28.0f),
+                Radius = 9f,
+                Material = new RayMaterial
+                {
+                    Color = Color.green,
+                    Roughness = 0.25f,
+                    Opacity = 1f
+                }
+            };
+            Spheres.Add(sphere4);
             
             
             
