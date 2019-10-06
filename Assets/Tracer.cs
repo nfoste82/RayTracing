@@ -42,17 +42,21 @@ namespace RayTracer
                             nearestIntersection.intersectionPt,
                             nearestIntersection.normal);
 
-                        var colors = new List<Color>();
+                        var totalLightColor = Color.black;
 
                         foreach (var light in lights)
                         {
                             var lightDir = (nearestIntersection.intersectionPt - light.Position).normalized;
                             var lightPercentageThatHits = Vector3.Dot(lightDir, nearestIntersection.normal) * -1;
                             
-                            colors.Add(light.Material.Color * lightPercentageThatHits);
+                            var lightColor = light.Material.Color * lightPercentageThatHits;
+                                
+                            totalLightColor.r = Math.Max(lightColor.r, totalLightColor.r);
+                            totalLightColor.g = Math.Max(lightColor.g, totalLightColor.g);
+                            totalLightColor.b = Math.Max(lightColor.b, totalLightColor.b);
                         }
 
-                        var finalColor = MaterialColorAfterLighting(nearestIntersection.collider.Material.Color, colors);
+                        var finalColor = nearestIntersection.collider.Material.Color * totalLightColor;
                         
                         texture.SetPixel(x, y, finalColor);
                     }
