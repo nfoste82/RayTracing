@@ -83,7 +83,7 @@ namespace RayTracer
 
                     if (nearestIntersection.collider == null)
                     {
-                        SetPixel(x, y, skyColorAtX);
+                        pixelColors[y * windowSize.x + x] = skyColorAtX;
                     }
                     else
                     {
@@ -97,14 +97,15 @@ namespace RayTracer
                             nearestIntersection.collider.Material);
                         //Profiler.EndSample();
 
+                        // Ambient lighting
                         diffuse.r = Math.Max(diffuse.r, _skyDarkColor.r);
                         diffuse.g = Math.Max(diffuse.g, _skyDarkColor.g);
                         diffuse.b = Math.Max(diffuse.b, _skyDarkColor.b);
 
                         var finalColor = nearestIntersection.collider.Material.Color * diffuse + specular;
 
-                        SetPixel(x, y, finalColor);
-                    }
+                        pixelColors[y * windowSize.x + x] = finalColor;
+                    }    
                 }
             }
 
@@ -160,6 +161,8 @@ namespace RayTracer
                 {
                     continue;
                 }
+
+                var transparentColor = Color.black;
                 
                 var lightHitDistance = Vector3Extensions.NormalizeReturnMag(ref ptToLight);
 
@@ -179,13 +182,28 @@ namespace RayTracer
 
                     if (hitDistance >= 0.0f && hitDistance < lightHitDistance)
                     {
-                        lightHitsThisPoint = false;
-                        break;
+                        var opacity = nonLight.Material.Opacity;
+                        if (opacity < 1.0f)
+                        {
+                            transparentColor += nonLight.Material.Color * (1 - opacity);
+                        }
+                        else
+                        {
+                            lightHitsThisPoint = false;
+                            break;
+                        }
                     }
                 }
 
                 if (lightHitsThisPoint)
                 {
+                    var lightColor = light.Material.Color;
+
+                    if (transparentColor != Color.black)
+                    {
+                        lightColor *= transparentColor;
+                    }
+                    
                     var reflect = Vector3.Reflect(ptToLight, ptNormal);
                     
                     // Handle specularity
@@ -198,7 +216,7 @@ namespace RayTracer
                             var specAmount = Math.Max(pow, 0);
                             if (specAmount > 0.01f)
                             {
-                                var lightSpecColor = light.Material.Color * specAmount * (1 - materialHit.Roughness);
+                                var lightSpecColor = lightColor * specAmount * (1 - materialHit.Roughness);
 
                                 specColor.r = Math.Max(lightSpecColor.r, specColor.r);
                                 specColor.g = Math.Max(lightSpecColor.g, specColor.g);
@@ -211,11 +229,14 @@ namespace RayTracer
                     {
                         var rayNormalDot = Vector3.Dot(ptToLight, ptNormal);
                         var lightPercentageThatHits = rayNormalDot;
-                        var lightDiffuseColor = light.Material.Color * lightPercentageThatHits;
+                        if (lightPercentageThatHits > 0.005f)
+                        {
+                            var lightDiffuseColor = lightColor * lightPercentageThatHits;
 
-                        diffuseColor.r = Math.Max(lightDiffuseColor.r, diffuseColor.r);
-                        diffuseColor.g = Math.Max(lightDiffuseColor.g, diffuseColor.g);
-                        diffuseColor.b = Math.Max(lightDiffuseColor.b, diffuseColor.b);
+                            diffuseColor.r = Math.Max(lightDiffuseColor.r, diffuseColor.r);
+                            diffuseColor.g = Math.Max(lightDiffuseColor.g, diffuseColor.g);
+                            diffuseColor.b = Math.Max(lightDiffuseColor.b, diffuseColor.b);
+                        }
                     }
                 }
             }
