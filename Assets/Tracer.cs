@@ -12,8 +12,27 @@ namespace RayTracer
         private bool evenLines = true;
         
         private readonly Color _skyColor = new Color(0.4f, 0.8f, 1.0f, 1.0f);
-        private readonly Color _skyIndirectColor = new Color(0.2f, 0.4f, 0.5f, 1.0f);
         private readonly Color _skyDarkColor = new Color(0.1f, 0.2f, 0.25f, 1.0f);
+
+        private Color[] pixelColors;
+
+        private Vector2Int windowSize;
+
+        public void SetPixel(int x, int y, Color color)
+        {
+            pixelColors[y * windowSize.x + x] = color;
+        }
+
+        public Color GetPixel(int x, int y)
+        {
+            return pixelColors[y * windowSize.x + x];
+        }
+
+        public Tracer(Texture2D texture)
+        {
+            windowSize = new Vector2Int(texture.width, texture.height);
+            pixelColors = new Color[texture.width * texture.height];
+        }
         
         public void ProcessRenderTexture(Texture2D texture, Scene scene, Camera camera)
         {
@@ -22,24 +41,26 @@ namespace RayTracer
             var cameraOrigin = camera.transform.position;
             var cameraNearPlane = camera.nearClipPlane;
 
-            evenLines = !evenLines;
-
             for (var y = 0; y < textureHeight; ++y)
             {
-                //                    if (interlacingEnabled)
+//                if (interlacingEnabled)
+//                {
+//                    if (evenLines && y % 2 != 0)
 //                    {
-//                        if (evenLines && y % 2 != 0)
-//                        {
-//                            texture.SetPixel(x, y, Color.black);
-//                            continue;
-//                        }
+//                        for (var x = 0; x < textureWidth; ++x)
+//                            pixelColors[y * windowSize.x + x] = Color.black;
 //                        
-//                        if (!evenLines && y % 2 == 0)
-//                        {
-//                            texture.SetPixel(x, y, Color.black);
-//                            continue;
-//                        }
+//                        continue;
 //                    }
+//                    
+//                    if (!evenLines && y % 2 == 0)
+//                    {
+//                        for (var x = 0; x < textureWidth; ++x)
+//                            pixelColors[y * windowSize.x + x] = Color.black;
+//                        
+//                        continue;
+//                    }
+//                }
 
                 var skyColorAtX = new Color(
                     Mathf.Lerp(_skyColor.r, _skyDarkColor.r, y / (float) textureHeight),
@@ -62,7 +83,7 @@ namespace RayTracer
 
                     if (nearestIntersection.collider == null)
                     {
-                        texture.SetPixel(x, y, skyColorAtX);
+                        SetPixel(x, y, skyColorAtX);
                     }
                     else
                     {
@@ -81,12 +102,14 @@ namespace RayTracer
                         diffuse.b = Math.Max(diffuse.b, _skyDarkColor.b);
 
                         var finalColor = nearestIntersection.collider.Material.Color * diffuse + specular;
-                        
-                        texture.SetPixel(x, y, finalColor);
+
+                        SetPixel(x, y, finalColor);
                     }
                 }
             }
-            
+
+            texture.SetPixels(pixelColors);
+
             texture.Apply();
         }
 
@@ -140,7 +163,7 @@ namespace RayTracer
                 
                 var lightHitDistance = Vector3Extensions.NormalizeReturnMag(ref ptToLight);
 
-                var lightWasHit = true;
+                var lightHitsThisPoint = true;
                 foreach (var nonLight in nonLights)
                 {
                     // This may help improve performance in a more dense scene. But in the current demo scene it hurts performance
@@ -156,46 +179,44 @@ namespace RayTracer
 
                     if (hitDistance >= 0.0f && hitDistance < lightHitDistance)
                     {
-                        lightWasHit = false;
+                        lightHitsThisPoint = false;
                         break;
                     }
                 }
 
-                if (lightWasHit)
+                if (lightHitsThisPoint)
                 {
-                    
-                    
-//                        float3 r = normalize(2 * dot(light, normal) * normal - light);
-//                        float3 v = normalize(mul(normalize(ViewVector), World));
-//
-//                        float dotProduct = dot(r, v);
-//                        float4 specular = SpecularIntensity * SpecularColor * max(pow(dotProduct, Shininess), 0) * length(input.Color);
-
-                    var rayNormalDot = Vector3.Dot(ptToLight, ptNormal);
                     var reflect = Vector3.Reflect(ptToLight, ptNormal);
-                    var viewDot = Vector3.Dot(cameraRayDirection, reflect);
-
-                    if (viewDot > 0.0f)
+                    
+                    // Handle specularity
                     {
-                        var pow = (float) Math.Pow(viewDot, Math.Max(64 * (1 - materialHit.Roughness), 1));
-                        var specAmount = Math.Max(pow, 0);
-                        if (specAmount > 0.01f)
-                        {
-                            var lightSpecColor = light.Material.Color * specAmount * (1 - materialHit.Roughness);
+                        var viewDot = Vector3.Dot(cameraRayDirection, reflect);
 
-                            specColor.r = Math.Max(lightSpecColor.r, specColor.r);
-                            specColor.g = Math.Max(lightSpecColor.g, specColor.g);
-                            specColor.b = Math.Max(lightSpecColor.b, specColor.b);
+                        if (viewDot > 0.0f)
+                        {
+                            var pow = (float) Math.Pow(viewDot, Math.Max(64 * (1 - materialHit.Roughness), 1));
+                            var specAmount = Math.Max(pow, 0);
+                            if (specAmount > 0.01f)
+                            {
+                                var lightSpecColor = light.Material.Color * specAmount * (1 - materialHit.Roughness);
+
+                                specColor.r = Math.Max(lightSpecColor.r, specColor.r);
+                                specColor.g = Math.Max(lightSpecColor.g, specColor.g);
+                                specColor.b = Math.Max(lightSpecColor.b, specColor.b);
+                            }
                         }
                     }
-                    
-                    var lightPercentageThatHits = rayNormalDot;
-                    var lightDiffuseColor = light.Material.Color * lightPercentageThatHits;
-                    
 
-                    diffuseColor.r = Math.Max(lightDiffuseColor.r, diffuseColor.r);
-                    diffuseColor.g = Math.Max(lightDiffuseColor.g, diffuseColor.g);
-                    diffuseColor.b = Math.Max(lightDiffuseColor.b, diffuseColor.b);
+                    // Diffuse lighting
+                    {
+                        var rayNormalDot = Vector3.Dot(ptToLight, ptNormal);
+                        var lightPercentageThatHits = rayNormalDot;
+                        var lightDiffuseColor = light.Material.Color * lightPercentageThatHits;
+
+                        diffuseColor.r = Math.Max(lightDiffuseColor.r, diffuseColor.r);
+                        diffuseColor.g = Math.Max(lightDiffuseColor.g, diffuseColor.g);
+                        diffuseColor.b = Math.Max(lightDiffuseColor.b, diffuseColor.b);
+                    }
                 }
             }
 

@@ -17,7 +17,7 @@ public class GameManager : MonoBehaviour
         
         _mainTexture = new Texture2D(width, height)
         {
-            filterMode = FilterMode.Point,
+            filterMode = FilterMode.Trilinear,
         };
         
         var spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
@@ -44,7 +44,7 @@ public class GameManager : MonoBehaviour
         _scene = new Scene();
         _scene.CreateTestScene();
 
-        _tracer = new Tracer();
+        _tracer = new Tracer(_mainTexture);
     }
 
     private void Update()
