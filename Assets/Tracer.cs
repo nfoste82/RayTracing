@@ -91,7 +91,6 @@ namespace RayTracer
             
             var depth = 0;
             Collider previousCollider = null;
-            //Color previousColor = Color.black;
 
             while (true)
             {
@@ -154,12 +153,15 @@ namespace RayTracer
                     var opacity = nearestIntersection.collider.Material.Opacity;
                     if (opacity < 1.0f && depth < maxDepth)
                     {
-                        // TODO: Implement refraction based on how the transparent object refracts
-
-                        //previousColor = finalColor;
+                        // Refract when we hit the transparent object
+                        // TODO: This is a half-assed reflection at the moment. I need to implement 
+                        //       changing refraction again once the ray leaves the transparent object.
+                        var colliderRefIndex = nearestIntersection.collider.Material.RefractionIndex;
+                        rayDirection = rayDirection.Refract(1.0f, colliderRefIndex, nearestIntersection.normal);
+                            
                         previousCollider = nearestIntersection.collider;
                         origin = nearestIntersection.intersectionPt;
-                        depth = depth + 1;
+                        ++depth;
                         
                         continue;
                     }
