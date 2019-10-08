@@ -35,7 +35,7 @@ namespace RayTracer
                 {
                     Color = Color.green,
                     Roughness = 0.6f,
-                    Opacity = 0.1f
+                    Opacity = 0.4f
                 }
             };
             Spheres.Add(sphere2);

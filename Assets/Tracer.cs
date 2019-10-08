@@ -71,41 +71,11 @@ namespace RayTracer
                 
                 for (var x = 0; x < textureWidth; ++x)
                 {
-                    var pixelPoint = camera.ScreenToWorldPoint(new Vector3(x, y, cameraNearPlane));
-                    var rayDirection = (pixelPoint - cameraOrigin);
+                    var origin = camera.ScreenToWorldPoint(new Vector3(x, y, cameraNearPlane));
+                    var rayDirection = (origin - cameraOrigin);
                     rayDirection.Normalize();
                     
-                    double nearestPt = float.MaxValue;
-
-                    //Profiler.BeginSample("GetNearestIntersection");
-                    var nearestIntersection = GetNearestIntersection(scene.Spheres, pixelPoint, rayDirection, ref nearestPt);
-                    //Profiler.EndSample();
-
-                    if (nearestIntersection.collider == null)
-                    {
-                        pixelColors[y * windowSize.x + x] = skyColorAtX;
-                    }
-                    else
-                    {
-                        //Profiler.BeginSample("LightColorAffectsHitPoint");
-                        var (diffuse, specular) = LightColorAffectsHitPoint(
-                            scene.Lights,
-                            scene.Spheres,
-                            nearestIntersection.intersectionPt,
-                            nearestIntersection.normal,
-                            rayDirection,
-                            nearestIntersection.collider.Material);
-                        //Profiler.EndSample();
-
-                        // Ambient lighting
-                        diffuse.r = Math.Max(diffuse.r, _skyDarkColor.r);
-                        diffuse.g = Math.Max(diffuse.g, _skyDarkColor.g);
-                        diffuse.b = Math.Max(diffuse.b, _skyDarkColor.b);
-
-                        var finalColor = nearestIntersection.collider.Material.Color * diffuse + specular;
-
-                        pixelColors[y * windowSize.x + x] = finalColor;
-                    }    
+                    CastRayFromScreen(origin, rayDirection, scene, x, y, skyColorAtX);
                 }
             }
 
@@ -114,9 +84,95 @@ namespace RayTracer
             texture.Apply();
         }
 
+        private void CastRayFromScreen(Vector3 origin, Vector3 rayDirection, Scene scene, int x, int y, Color skyColorAtX)
+        {
+            // (currently only a max depth of 1 supported)
+            const int maxDepth = 1;
+            
+            var depth = 0;
+            Collider previousCollider = null;
+            //Color previousColor = Color.black;
+
+            while (true)
+            {
+                double nearestPt = float.MaxValue;
+
+                var nearestIntersection = GetNearestIntersection(scene.Spheres, previousCollider, origin, rayDirection, ref nearestPt);
+
+                if (nearestIntersection.collider == null)
+                {
+                    if (depth > 0)
+                    {
+                        var pixelColor = pixelColors[y * windowSize.x + x];
+
+                        var previousOpacity = previousCollider.Material.Opacity;
+                        var inverseOpacity = 1 - previousOpacity;
+                        
+                        pixelColor.r = Math.Max(pixelColor.r, skyColorAtX.r * inverseOpacity);
+                        pixelColor.g = Math.Max(pixelColor.g, skyColorAtX.g * inverseOpacity);
+                        pixelColor.b = Math.Max(pixelColor.b, skyColorAtX.b * inverseOpacity);
+
+                        pixelColors[y * windowSize.x + x] = pixelColor;
+                    }
+                    else
+                    {
+                        pixelColors[y * windowSize.x + x] = skyColorAtX;
+                    }
+                }
+                else
+                {
+                    var (diffuse, specular) = LightColorAffectsHitPoint(scene.Lights, scene.Spheres, nearestIntersection.intersectionPt, nearestIntersection.normal, rayDirection, nearestIntersection.collider.Material);
+
+                    // Ambient lighting
+                    diffuse.r = Math.Max(diffuse.r, _skyDarkColor.r);
+                    diffuse.g = Math.Max(diffuse.g, _skyDarkColor.g);
+                    diffuse.b = Math.Max(diffuse.b, _skyDarkColor.b);
+
+                    var finalColor = (nearestIntersection.collider.Material.Color * diffuse + specular);
+                    finalColor.a = 1.0f;
+
+                    if (depth == maxDepth)
+                    {
+                        // Add colors from each depth together (currently only depth of 1 supported)
+                        
+                        var pixelColor = pixelColors[y * windowSize.x + x];
+
+                        var previousOpacity = previousCollider.Material.Opacity;
+                        var inverseOpacity = 1 - previousOpacity;
+                        
+                        pixelColor.r = Math.Max(pixelColor.r, finalColor.r * inverseOpacity);
+                        pixelColor.g = Math.Max(pixelColor.g, finalColor.g * inverseOpacity);
+                        pixelColor.b = Math.Max(pixelColor.b, finalColor.b * inverseOpacity);
+
+                        pixelColors[y * windowSize.x + x] = pixelColor;
+                    }
+                    else
+                    {
+                        pixelColors[y * windowSize.x + x] = finalColor;
+                    }
+
+                    var opacity = nearestIntersection.collider.Material.Opacity;
+                    if (opacity < 1.0f && depth < maxDepth)
+                    {
+                        // TODO: Implement refraction based on how the transparent object refracts
+
+                        //previousColor = finalColor;
+                        previousCollider = nearestIntersection.collider;
+                        origin = nearestIntersection.intersectionPt;
+                        depth = depth + 1;
+                        
+                        continue;
+                    }
+                }
+
+                break;
+            }
+        }
+
         private static (Collider collider, Vector3 intersectionPt, Vector3 normal) GetNearestIntersection(
-            List<Collider> colliders, 
-            Vector3 pixelPoint,
+            List<Collider> colliders,
+            Collider colliderToIgnore,
+            Vector3 origin,
             Vector3 rayDirection, 
             ref double nearestDistance)
         {
@@ -124,7 +180,12 @@ namespace RayTracer
 
             foreach (var collider in colliders)
             {
-                var hitDistance = collider.Intersect(pixelPoint, rayDirection);
+                if (collider == colliderToIgnore)
+                {
+                    continue;
+                }
+                
+                var hitDistance = collider.Intersect(origin, rayDirection);
 
                 if (hitDistance >= 0.0f && hitDistance < nearestDistance)
                 {
@@ -133,7 +194,7 @@ namespace RayTracer
                 }
             }
 
-            var nearestPt = (nearestCollider == null) ? Vector3.zero : (pixelPoint + (rayDirection * (float)nearestDistance));
+            var nearestPt = (nearestCollider == null) ? Vector3.zero : (origin + (rayDirection * (float)nearestDistance));
             var normal = (nearestCollider == null) ? Vector3.zero : nearestCollider.GetNormalAtPoint(nearestPt);
 
             return (nearestCollider, nearestPt, normal);
@@ -163,7 +224,7 @@ namespace RayTracer
                 }
 
                 var transparentColor = Color.black;
-                
+
                 var lightHitDistance = Vector3Extensions.NormalizeReturnMag(ref ptToLight);
 
                 var lightHitsThisPoint = true;
@@ -183,9 +244,13 @@ namespace RayTracer
                     if (hitDistance >= 0.0f && hitDistance < lightHitDistance)
                     {
                         var opacity = nonLight.Material.Opacity;
-                        if (opacity < 1.0f)
+                        if (opacity < 1.0f && transparentColor.a >= 0f)
                         {
-                            transparentColor += nonLight.Material.Color * (1 - opacity);
+                            var nonLightColor = nonLight.Material.Color;
+                            transparentColor.r = Math.Max(transparentColor.r, nonLightColor.r * opacity);
+                            transparentColor.g = Math.Max(transparentColor.g, nonLightColor.g * opacity);
+                            transparentColor.b = Math.Max(transparentColor.b, nonLightColor.b * opacity);
+                            transparentColor.a = Math.Max(transparentColor.a - opacity, 0f);
                         }
                         else
                         {
@@ -198,10 +263,14 @@ namespace RayTracer
                 if (lightHitsThisPoint)
                 {
                     var lightColor = light.Material.Color;
-
-                    if (transparentColor != Color.black)
+                    
+                    if (transparentColor.a < 1f && transparentColor.a > 0f)
                     {
-                        lightColor *= transparentColor;
+                        var opacity = transparentColor.a;
+                        
+                        lightColor.r = Math.Max(lightColor.r * opacity, transparentColor.r);
+                        lightColor.g = Math.Max(lightColor.g * opacity, transparentColor.g);
+                        lightColor.b = Math.Max(lightColor.b * opacity, transparentColor.b);
                     }
                     
                     var reflect = Vector3.Reflect(ptToLight, ptNormal);
