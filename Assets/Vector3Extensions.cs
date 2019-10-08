@@ -28,19 +28,38 @@ namespace RayTracer
             const float maxRefractionDiff = 4;
             const float maxReflect = 2;
 
-            float refraction = (targetRefraction - sourceRefraction) / maxRefractionDiff;
+            var refraction = (targetRefraction - sourceRefraction) / maxRefractionDiff;
             var reflectAmount = refraction * maxReflect;
-            
-            // target - source (2 - 1)
-            
-            
+
             // reflect amount
+            // ------------------
             // 0 no refraction
             // -2 (-90 degrees)
             // 2 (90 degrees)
             
-            float num = -reflectAmount * Vector3.Dot(targetNormal, sourceDirection);
-            return new Vector3(num * targetNormal.x + sourceDirection.x, num * targetNormal.y + sourceDirection.y, num * targetNormal.z + sourceDirection.z);
+            reflectAmount = reflectAmount * Vector3.Dot(targetNormal, sourceDirection);
+            return new Vector3(reflectAmount * targetNormal.x + sourceDirection.x, 
+                reflectAmount * targetNormal.y + sourceDirection.y, 
+                reflectAmount * targetNormal.z + sourceDirection.z);
+        }
+
+        public static Vector3 GetClosestPointOnLineSegment(Vector3 LinePointStart, Vector3 LinePointEnd, Vector3 testPoint)
+        {
+            Vector3 lineDiff = LinePointEnd - LinePointStart;
+            float lineSegSqrLength = lineDiff.sqrMagnitude;
+ 
+            Vector3 lineToPoint = testPoint - LinePointStart;
+            float dotProduct = Vector3.Dot(lineDiff, lineToPoint);
+ 
+            float percentageAlongLine = dotProduct / lineSegSqrLength;
+ 
+            if (percentageAlongLine < 0.0f || percentageAlongLine > 1.0f)
+            {
+                // Point isn't within the line segment
+                return Vector3.zero;
+            }
+ 
+            return LinePointStart + (percentageAlongLine * (LinePointEnd - LinePointStart));
         }
     }
 }
