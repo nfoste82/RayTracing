@@ -35,7 +35,7 @@ namespace RayTracer
                 {
                     Color = Color.green,
                     Roughness = 0.6f,
-                    Opacity = 0.3f,
+                    Opacity = 0.5f,
                     RefractionIndex = 1.3f
                 }
             };
@@ -50,7 +50,7 @@ namespace RayTracer
                     //Color = new Color(0.6f, 0.4f, 1.0f, 1.0f),
                     Color = Color.blue,
                     Roughness = 0.05f,
-                    Opacity = 0.3f,
+                    Opacity = 0.5f,
                     RefractionIndex = 1.5f
                 }
             };

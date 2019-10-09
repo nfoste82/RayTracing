@@ -285,30 +285,36 @@ namespace RayTracer
                     
                     if (transparentColor.a < 1f && transparentColor.a > 0f)
                     {
-                        var opacity = transparentColor.a;
+                        var lightPercentageThatHits = transparentColor.a;
                         
-                        lightColor.r = Math.Max(lightColor.r * opacity, transparentColor.r);
-                        lightColor.g = Math.Max(lightColor.g * opacity, transparentColor.g);
-                        lightColor.b = Math.Max(lightColor.b * opacity, transparentColor.b);
+                        lightColor.r = Math.Max(lightColor.r * lightPercentageThatHits, transparentColor.r);
+                        lightColor.g = Math.Max(lightColor.g * lightPercentageThatHits, transparentColor.g);
+                        lightColor.b = Math.Max(lightColor.b * lightPercentageThatHits, transparentColor.b);
                     }
                     
-                    var reflect = Vector3.Reflect(ptToLight, ptNormal);
+                    var opacity = materialHit.Opacity;
                     
                     // Handle specularity
                     {
+                        var reflect = Vector3.Reflect(ptToLight, ptNormal);
                         var viewDot = Vector3.Dot(cameraRayDirection, reflect);
 
                         if (viewDot > 0.0f)
                         {
-                            var pow = (float) Math.Pow(viewDot, Math.Max(64 * (1 - materialHit.Roughness), 1));
+                            var roughness = materialHit.Roughness;
+                            var pow = (float) Math.Pow(viewDot, Math.Max(64 * (1 - roughness), 1));
                             var specAmount = Math.Max(pow, 0);
-                            if (specAmount > 0.01f)
+                            if (specAmount > 0.005f)
                             {
-                                var lightSpecColor = lightColor * specAmount * (1 - materialHit.Roughness);
+                                var specMods = specAmount * (1 - roughness) * Math.Min(opacity * 2, 1f);
+                                if (specMods > 0.005f)
+                                {
+                                    var lightSpecColor = lightColor * specMods;
 
-                                specColor.r = Math.Max(lightSpecColor.r, specColor.r);
-                                specColor.g = Math.Max(lightSpecColor.g, specColor.g);
-                                specColor.b = Math.Max(lightSpecColor.b, specColor.b);
+                                    specColor.r = Math.Max(lightSpecColor.r, specColor.r);
+                                    specColor.g = Math.Max(lightSpecColor.g, specColor.g);
+                                    specColor.b = Math.Max(lightSpecColor.b, specColor.b);
+                                }
                             }
                         }
                     }
@@ -316,7 +322,7 @@ namespace RayTracer
                     // Diffuse lighting
                     {
                         var rayNormalDot = Vector3.Dot(ptToLight, ptNormal);
-                        var lightPercentageThatHits = rayNormalDot;
+                        var lightPercentageThatHits = rayNormalDot * opacity;
                         if (lightPercentageThatHits > 0.005f)
                         {
                             var lightDiffuseColor = lightColor * lightPercentageThatHits;
