@@ -153,16 +153,10 @@ namespace RayTracer
                     var opacity = nearestIntersection.collider.Material.Opacity;
                     if (opacity < 1.0f && depth < maxDepth)
                     {
-                        //var test = Vector3Extensions.GetClosestPointOnLineSegment(new Vector3(0, 0, 0),
-                        //    new Vector3(10, 10, 0), new Vector3(10, 0, 0));
-                        
-                        
                         previousCollider = nearestIntersection.collider;
                         origin = nearestIntersection.intersectionPt;
                         
                         // Refract when we hit the transparent object
-                        // TODO: This is a half-assed reflection at the moment. I need to implement 
-                        //       changing refraction again once the ray leaves the transparent object.
                         var colliderRefIndex = nearestIntersection.collider.Material.RefractionIndex;
                         rayDirection = rayDirection.Refract(1.0f, colliderRefIndex, nearestIntersection.normal);
                         
@@ -174,6 +168,7 @@ namespace RayTracer
                         var exitPoint = ((halfway - origin) * 2f) + origin;
                         var exitPointNormal = (exitPoint - colliderPos).normalized;
 
+                        // Now refract again since we've left the sphere
                         rayDirection = rayDirection.Refract(colliderRefIndex, 1.0f, exitPointNormal);
                         origin = exitPoint;
                         

@@ -1,4 +1,5 @@
-﻿using RayTracer;
+﻿using System;
+using RayTracer;
 using UnityEngine;
 
 public class GameManager : MonoBehaviour
@@ -51,4 +52,17 @@ public class GameManager : MonoBehaviour
     {
         _tracer.ProcessRenderTexture(_mainTexture, _scene, Camera.main);
     }
+
+//    private void OnRenderImage(RenderTexture src, RenderTexture dest)
+//    {
+//        if (_material == null)
+//        {
+//            _material = new Material(_shader);
+//        }
+//        
+//        Graphics.Blit(src, dest, _material);
+//    }
+//
+//    public Shader _shader;
+//    private Material _material;
 }

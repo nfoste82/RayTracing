@@ -34,7 +34,7 @@ namespace RayTracer
                 Material = new RayMaterial
                 {
                     Color = Color.green,
-                    Roughness = 0.6f,
+                    Roughness = 0.25f,
                     Opacity = 0.5f,
                     RefractionIndex = 1.3f
                 }
