@@ -76,6 +76,7 @@ namespace Shapes
             // Now refract again since we've left the sphere
             ray.Direction = ray.Direction.Refract(colliderRefIndex, 1.0f, exitPointNormal);
             ray.Origin = exitPoint;
+            ray.Energy -= Material.Opacity;
         }
     }
 }

@@ -4,6 +4,9 @@ using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
+    [SerializeField] 
+    public RayTracer.QualitySettings Settings;
+    
     private Texture2D _mainTexture;
     private Tracer _tracer;
     private Scene _scene;
@@ -45,7 +48,7 @@ public class GameManager : MonoBehaviour
         _scene = new Scene();
         _scene.CreateTestScene();
 
-        _tracer = new Tracer(_mainTexture);
+        _tracer = new Tracer(_mainTexture, this);
     }
 
     private void Update()

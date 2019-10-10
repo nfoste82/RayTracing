@@ -20,8 +20,8 @@ namespace RayTracer
                 Radius = 12f,
                 Material = new RayMaterial
                 {
-                    Color = Color.red,
-                    Roughness = 0.95f,
+                    Color = Color.blue,
+                    Roughness = 0.1f,
                     Opacity = 1f
                 }
             };
@@ -29,46 +29,57 @@ namespace RayTracer
             
             var sphere2 = new Sphere
             {
-                Position = new Vector3(8.0f, -5.0f, 10.0f),
-                Radius = 5f,
+                Position = new Vector3(11.0f, -10.0f, 10.0f),
+                Radius = 6,
                 Material = new RayMaterial
                 {
                     Color = Color.green,
-                    Roughness = 0.25f,
+                    Roughness = 0.5f,
                     Opacity = 0.5f,
-                    RefractionIndex = 1.3f
+                    RefractionIndex = 1.4f
                 }
             };
             Spheres.Add(sphere2);
             
             var sphere3 = new Sphere
             {
-                Position = new Vector3(-2.0f, 0.0f, 11.0f),
-                Radius = 5f,
+                Position = new Vector3(-2.0f, -10.0f, 11.0f),
+                Radius = 4f,
                 Material = new RayMaterial
                 {
-                    //Color = new Color(0.6f, 0.4f, 1.0f, 1.0f),
-                    Color = Color.blue,
-                    Roughness = 0.05f,
-                    Opacity = 0.5f,
-                    RefractionIndex = 1.5f
+                    Color = Color.red,
+                    Roughness = 0.15f,
+                    Opacity = 0.35f,
+                    RefractionIndex = 1.35f
                 }
             };
             Spheres.Add(sphere3);
             
             var sphere4 = new Sphere
             {
-                Position = new Vector3(-7.0f, -6.0f, 23.0f),
+                Position = new Vector3(-14.0f, -10.0f, 23.0f),
                 Radius = 9f,
                 Material = new RayMaterial
                 {
                     Color = Color.yellow,
-                    Roughness = 0.25f,
+                    Roughness = 0.6f,
                     Opacity = 1f
                 }
             };
             Spheres.Add(sphere4);
             
+            var sphere5 = new Sphere
+            {
+                Position = new Vector3(0.0f, -10020.0f, 0.0f),
+                Radius = 10000f,
+                Material = new RayMaterial
+                {
+                    Color = Color.white,
+                    Roughness = 0.8f,
+                    Opacity = 1f
+                }
+            };
+            Spheres.Add(sphere5);
             
             
 

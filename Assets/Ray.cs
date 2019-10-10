@@ -7,6 +7,7 @@ namespace RayTracer
         public Vector3 Origin;
         public Vector3 Direction;
         public Color Color;
+        public float Energy;
         
         public Vector3 GetPoint(float distance)
         {

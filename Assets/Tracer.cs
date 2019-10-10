@@ -8,9 +8,12 @@ namespace RayTracer
 {
     public class Tracer
     {
-        public Tracer(Texture2D texture)
+        private GameManager _gameManager;
+        
+        public Tracer(Texture2D texture, GameManager gameManager)
         {
-            windowSize = new Vector2Int(texture.width, texture.height);
+            _gameManager = gameManager;
+            _windowSize = new Vector2Int(texture.width, texture.height);
             _pixelColors = new Color[texture.width * texture.height];
             _rays = new Ray[texture.width,texture.height];
 
@@ -39,10 +42,11 @@ namespace RayTracer
                     ray.Direction = ray.Origin - cameraOrigin;
                     ray.Direction.Normalize();
                     ray.Color = Color.black;
+                    ray.Energy = 1.0f;
                     
                     CastRayFromScreen(ray, scene, x, y, textureHeight);
 
-                    _pixelColors[y * windowSize.x + x] = ray.Color;
+                    _pixelColors[y * _windowSize.x + x] = ray.Color;
                 }
             }
 
@@ -52,9 +56,6 @@ namespace RayTracer
 
         private void CastRayFromScreen(Ray ray, Scene scene, int x, int y, int maxY)
         {
-            // (currently only a max depth of 1 supported)
-            const int maxDepth = 1;
-            
             var depth = 0;
             Collider previousCollider = null;
 
@@ -73,75 +74,50 @@ namespace RayTracer
                         1f
                     );
                     
-                    if (depth > 0)
-                    {
-                        var previousOpacity = previousCollider.Material.Opacity;
-                        var inverseOpacity = 1 - previousOpacity;
+                    ray.Color = ColorExtensions.Combine(ray.Color, skyColorAtX * ray.Energy);
+                    break;
+                }
+                
+                var (diffuse, specular) = LightColorAffectsHitPoint(scene.Lights, scene.Spheres, intersection, ray);
 
-                        ray.Color = ColorExtensions.Combine(ray.Color, skyColorAtX * inverseOpacity);
-                    }
-                    else
-                    {
-                        ray.Color = skyColorAtX;
-                    }
+                // Add in ambient lighting
+                diffuse = ColorExtensions.Combine(diffuse, _skyDarkColor);
+
+                var diffuseAndSpec = intersection.Collider.Material.Color * diffuse + specular;
+                diffuseAndSpec.a = 1.0f;
+
+                ray.Color = ColorExtensions.Combine(ray.Color, diffuseAndSpec * ray.Energy);
+
+                // Stop if we've bounced the max number of times
+                if (depth >= _gameManager.Settings.numRayBounces)
+                {
+                    break;
+                }
+                
+                // TODO: We should be able to spawn a new ray here and combine the results
+                //       Because part of the ray could go through the transparent surface and
+                //       part would reflect off of it.
+
+                var opacity = intersection.Collider.Material.Opacity;
+                if (opacity < 1.0f)
+                {
+                    // Refract through the transparent surface
+                    intersection.Collider.Refract(ray, intersection);
                 }
                 else
                 {
-                    var (diffuse, specular) = LightColorAffectsHitPoint(
-                        scene.Lights, 
-                        scene.Spheres, 
-                        intersection, 
-                        ray);
-
-                    // Ambient lighting
-                    diffuse = ColorExtensions.Combine(diffuse, _skyDarkColor);
-
-                    var finalColor = (intersection.Collider.Material.Color * diffuse + specular);
-                    finalColor.a = 1.0f;
-
-                    if (depth == maxDepth)
-                    {
-                        // Add colors from each depth together (currently only depth of 1 supported)
-                        var previousOpacity = previousCollider.Material.Opacity;
-                        var inverseOpacity = 1 - previousOpacity;
-
-                        ray.Color = ColorExtensions.Combine(ray.Color, finalColor * inverseOpacity);
-                    }
-                    else
-                    {
-                        ray.Color = finalColor;
-                    }
-
-                    var opacity = intersection.Collider.Material.Opacity;
-                    if (opacity < 1.0f && depth < maxDepth)
-                    {
-                        previousCollider = intersection.Collider;
-                        
-                        ray.Origin = intersection.Position;
-                        
-                        // Refract when we hit the transparent object
-                        var colliderRefIndex = intersection.Collider.Material.RefractionIndex;
-                        ray.Direction = ray.Direction.Refract(1.0f, colliderRefIndex, intersection.Normal);
-                        
-                        // Calculate exit point of sphere
-                        var colliderPos = intersection.Collider.Position;
-                        var colliderRadius = intersection.Collider.GetBoundingRadius(); 
-                        var halfway = Vector3Extensions.GetClosestPointOnLineSegment(ray.Origin, ray.Origin + 2 * colliderRadius * ray.Direction,
-                            colliderPos);
-                        var exitPoint = ((halfway - ray.Origin) * 2f) + ray.Origin;
-                        var exitPointNormal = (exitPoint - colliderPos).normalized;
-
-                        // Now refract again since we've left the sphere
-                        ray.Direction = ray.Direction.Refract(colliderRefIndex, 1.0f, exitPointNormal);
-                        ray.Origin = exitPoint;
-
-                        ++depth;
-                        
-                        continue;
-                    }
+                    // Bounce of the opaque surface
+                    ray.Origin = intersection.Position;
+                    ray.Direction = Vector3.Reflect(ray.Direction, intersection.Normal);
+                    ray.Energy -= 0.8f * intersection.Collider.Material.Roughness;
                 }
 
-                break;
+                if (ray.Energy <= 0.005f)
+                {
+                    break;
+                }
+                
+                ++depth;
             }
         }
 
@@ -225,9 +201,8 @@ namespace RayTracer
                         if (opacity < 1.0f && transparentColor.a >= 0f)
                         {
                             var nonLightColor = nonLight.Material.Color;
-                            transparentColor.r = Math.Max(transparentColor.r, nonLightColor.r * opacity);
-                            transparentColor.g = Math.Max(transparentColor.g, nonLightColor.g * opacity);
-                            transparentColor.b = Math.Max(transparentColor.b, nonLightColor.b * opacity);
+
+                            transparentColor = ColorExtensions.Combine(transparentColor, nonLightColor);
                             transparentColor.a = Math.Max(transparentColor.a - opacity, 0f);
                         }
                         else
@@ -245,10 +220,8 @@ namespace RayTracer
                     if (transparentColor.a < 1f && transparentColor.a > 0f)
                     {
                         var lightPercentageThatHits = transparentColor.a;
-                        
-                        lightColor.r = Math.Max(lightColor.r * lightPercentageThatHits, transparentColor.r);
-                        lightColor.g = Math.Max(lightColor.g * lightPercentageThatHits, transparentColor.g);
-                        lightColor.b = Math.Max(lightColor.b * lightPercentageThatHits, transparentColor.b);
+
+                        lightColor = ColorExtensions.Combine(lightColor * lightPercentageThatHits, transparentColor);
                     }
                     
                     var opacity = intersection.Collider.Material.Opacity;
@@ -269,10 +242,8 @@ namespace RayTracer
                                 if (specMods > 0.005f)
                                 {
                                     var lightSpecColor = lightColor * specMods;
-
-                                    specColor.r = Math.Max(lightSpecColor.r, specColor.r);
-                                    specColor.g = Math.Max(lightSpecColor.g, specColor.g);
-                                    specColor.b = Math.Max(lightSpecColor.b, specColor.b);
+                                    
+                                    specColor = ColorExtensions.Combine(lightSpecColor, specColor);
                                 }
                             }
                         }
@@ -286,9 +257,7 @@ namespace RayTracer
                         {
                             var lightDiffuseColor = lightColor * lightPercentageThatHits;
 
-                            diffuseColor.r = Math.Max(lightDiffuseColor.r, diffuseColor.r);
-                            diffuseColor.g = Math.Max(lightDiffuseColor.g, diffuseColor.g);
-                            diffuseColor.b = Math.Max(lightDiffuseColor.b, diffuseColor.b);
+                            diffuseColor = ColorExtensions.Combine(lightDiffuseColor, diffuseColor);
                         }
                     }
                 }
@@ -303,6 +272,6 @@ namespace RayTracer
         private readonly Color[] _pixelColors;
         private readonly Ray[,] _rays;
 
-        private Vector2Int windowSize;
+        private Vector2Int _windowSize;
     }
 }

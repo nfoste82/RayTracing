@@ -8,6 +8,7 @@
       <e p="Assets" t="Include">
         <e p="ColorExtensions.cs" t="Include" />
         <e p="GameManager.cs" t="Include" />
+        <e p="Intersection.cs" t="Include" />
         <e p="Ray.cs" t="Include" />
         <e p="RAYMaterial.cs" t="Include" />
         <e p="Scene.cs" t="Include" />
