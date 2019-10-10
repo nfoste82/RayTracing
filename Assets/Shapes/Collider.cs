@@ -1,5 +1,6 @@
 using UnityEngine;
 using RayTracer;
+using Ray = RayTracer.Ray;
 
 namespace Shapes
 {
@@ -11,9 +12,9 @@ namespace Shapes
 
         public abstract float GetBoundingRadius();
 
-        public abstract float Intersect(
-            Vector3 origin,
-            Vector3 rayDir);
+        public abstract float Intersect(Vector3 origin, Vector3 direction);
+
+        public abstract void Refract(Ray ray, Intersection intersection);
 
         public Vector3 GetNormalAtPoint(Vector3 point)
         {

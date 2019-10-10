@@ -8,30 +8,19 @@ namespace RayTracer
 {
     public class Tracer
     {
-        private bool interlacingEnabled = true;
-        private bool evenLines = true;
-        
-        private readonly Color _skyColor = new Color(0.4f, 0.8f, 1.0f, 1.0f);
-        private readonly Color _skyDarkColor = new Color(0.1f, 0.2f, 0.25f, 1.0f);
-
-        private Color[] pixelColors;
-
-        private Vector2Int windowSize;
-
-        public void SetPixel(int x, int y, Color color)
-        {
-            pixelColors[y * windowSize.x + x] = color;
-        }
-
-        public Color GetPixel(int x, int y)
-        {
-            return pixelColors[y * windowSize.x + x];
-        }
-
         public Tracer(Texture2D texture)
         {
             windowSize = new Vector2Int(texture.width, texture.height);
-            pixelColors = new Color[texture.width * texture.height];
+            _pixelColors = new Color[texture.width * texture.height];
+            _rays = new Ray[texture.width,texture.height];
+
+            for (var y = 0; y < texture.height; ++y)
+            {
+                for (var x = 0; x < texture.width; ++x)
+                {
+                    _rays[x, y] = new Ray();
+                }
+            }
         }
         
         public void ProcessRenderTexture(Texture2D texture, Scene scene, Camera camera)
@@ -43,48 +32,25 @@ namespace RayTracer
 
             for (var y = 0; y < textureHeight; ++y)
             {
-//                if (interlacingEnabled)
-//                {
-//                    if (evenLines && y % 2 != 0)
-//                    {
-//                        for (var x = 0; x < textureWidth; ++x)
-//                            pixelColors[y * windowSize.x + x] = Color.black;
-//                        
-//                        continue;
-//                    }
-//                    
-//                    if (!evenLines && y % 2 == 0)
-//                    {
-//                        for (var x = 0; x < textureWidth; ++x)
-//                            pixelColors[y * windowSize.x + x] = Color.black;
-//                        
-//                        continue;
-//                    }
-//                }
-
-                var skyColorAtX = new Color(
-                    Mathf.Lerp(_skyColor.r, _skyDarkColor.r, y / (float) textureHeight),
-                    Mathf.Lerp(_skyColor.g, _skyDarkColor.g, y / (float) textureHeight),
-                    Mathf.Lerp(_skyColor.b, _skyDarkColor.b, y / (float) textureHeight),
-                    1f
-                );
-                
                 for (var x = 0; x < textureWidth; ++x)
                 {
-                    var origin = camera.ScreenToWorldPoint(new Vector3(x, y, cameraNearPlane));
-                    var rayDirection = (origin - cameraOrigin);
-                    rayDirection.Normalize();
+                    var ray = _rays[x, y];
+                    ray.Origin = camera.ScreenToWorldPoint(new Vector3(x, y, cameraNearPlane));
+                    ray.Direction = ray.Origin - cameraOrigin;
+                    ray.Direction.Normalize();
+                    ray.Color = Color.black;
                     
-                    CastRayFromScreen(origin, rayDirection, scene, x, y, skyColorAtX);
+                    CastRayFromScreen(ray, scene, x, y, textureHeight);
+
+                    _pixelColors[y * windowSize.x + x] = ray.Color;
                 }
             }
 
-            texture.SetPixels(pixelColors);
-
+            texture.SetPixels(_pixelColors);
             texture.Apply();
         }
 
-        private void CastRayFromScreen(Vector3 origin, Vector3 rayDirection, Scene scene, int x, int y, Color skyColorAtX)
+        private void CastRayFromScreen(Ray ray, Scene scene, int x, int y, int maxY)
         {
             // (currently only a max depth of 1 supported)
             const int maxDepth = 1;
@@ -96,83 +62,79 @@ namespace RayTracer
             {
                 double nearestPt = float.MaxValue;
 
-                var nearestIntersection = GetNearestIntersection(scene.Spheres, previousCollider, origin, rayDirection, ref nearestPt);
+                var intersection = GetNearestIntersection(ray, scene.Spheres, previousCollider, ref nearestPt);
 
-                if (nearestIntersection.collider == null)
+                if (intersection.Collider == null)
                 {
+                    var skyColorAtX = new Color(
+                        Mathf.Lerp(_skyColor.r, _skyDarkColor.r, y / (float)maxY),
+                        Mathf.Lerp(_skyColor.g, _skyDarkColor.g, y / (float)maxY),
+                        Mathf.Lerp(_skyColor.b, _skyDarkColor.b, y / (float)maxY),
+                        1f
+                    );
+                    
                     if (depth > 0)
                     {
-                        var pixelColor = pixelColors[y * windowSize.x + x];
-
                         var previousOpacity = previousCollider.Material.Opacity;
                         var inverseOpacity = 1 - previousOpacity;
-                        
-                        pixelColor.r = Math.Max(pixelColor.r, skyColorAtX.r * inverseOpacity);
-                        pixelColor.g = Math.Max(pixelColor.g, skyColorAtX.g * inverseOpacity);
-                        pixelColor.b = Math.Max(pixelColor.b, skyColorAtX.b * inverseOpacity);
 
-                        pixelColors[y * windowSize.x + x] = pixelColor;
+                        ray.Color = ColorExtensions.Combine(ray.Color, skyColorAtX * inverseOpacity);
                     }
                     else
                     {
-                        pixelColors[y * windowSize.x + x] = skyColorAtX;
+                        ray.Color = skyColorAtX;
                     }
                 }
                 else
                 {
-                    var (diffuse, specular) = LightColorAffectsHitPoint(scene.Lights, scene.Spheres, nearestIntersection.intersectionPt, nearestIntersection.normal, rayDirection, nearestIntersection.collider.Material);
+                    var (diffuse, specular) = LightColorAffectsHitPoint(
+                        scene.Lights, 
+                        scene.Spheres, 
+                        intersection, 
+                        ray);
 
                     // Ambient lighting
-                    diffuse.r = Math.Max(diffuse.r, _skyDarkColor.r);
-                    diffuse.g = Math.Max(diffuse.g, _skyDarkColor.g);
-                    diffuse.b = Math.Max(diffuse.b, _skyDarkColor.b);
+                    diffuse = ColorExtensions.Combine(diffuse, _skyDarkColor);
 
-                    var finalColor = (nearestIntersection.collider.Material.Color * diffuse + specular);
+                    var finalColor = (intersection.Collider.Material.Color * diffuse + specular);
                     finalColor.a = 1.0f;
 
                     if (depth == maxDepth)
                     {
                         // Add colors from each depth together (currently only depth of 1 supported)
-                        
-                        var pixelColor = pixelColors[y * windowSize.x + x];
-
                         var previousOpacity = previousCollider.Material.Opacity;
                         var inverseOpacity = 1 - previousOpacity;
-                        
-                        pixelColor.r = Math.Max(pixelColor.r, finalColor.r * inverseOpacity);
-                        pixelColor.g = Math.Max(pixelColor.g, finalColor.g * inverseOpacity);
-                        pixelColor.b = Math.Max(pixelColor.b, finalColor.b * inverseOpacity);
 
-                        pixelColors[y * windowSize.x + x] = pixelColor;
+                        ray.Color = ColorExtensions.Combine(ray.Color, finalColor * inverseOpacity);
                     }
                     else
                     {
-                        pixelColors[y * windowSize.x + x] = finalColor;
+                        ray.Color = finalColor;
                     }
 
-                    var opacity = nearestIntersection.collider.Material.Opacity;
+                    var opacity = intersection.Collider.Material.Opacity;
                     if (opacity < 1.0f && depth < maxDepth)
                     {
-                        previousCollider = nearestIntersection.collider;
-                        origin = nearestIntersection.intersectionPt;
+                        previousCollider = intersection.Collider;
+                        
+                        ray.Origin = intersection.Position;
                         
                         // Refract when we hit the transparent object
-                        var colliderRefIndex = nearestIntersection.collider.Material.RefractionIndex;
-                        rayDirection = rayDirection.Refract(1.0f, colliderRefIndex, nearestIntersection.normal);
+                        var colliderRefIndex = intersection.Collider.Material.RefractionIndex;
+                        ray.Direction = ray.Direction.Refract(1.0f, colliderRefIndex, intersection.Normal);
                         
                         // Calculate exit point of sphere
-                        var colliderPos = nearestIntersection.collider.Position;
-                        var colliderRadius = nearestIntersection.collider.GetBoundingRadius(); 
-                        var halfway = Vector3Extensions.GetClosestPointOnLineSegment(origin, origin + 2 * colliderRadius * rayDirection,
+                        var colliderPos = intersection.Collider.Position;
+                        var colliderRadius = intersection.Collider.GetBoundingRadius(); 
+                        var halfway = Vector3Extensions.GetClosestPointOnLineSegment(ray.Origin, ray.Origin + 2 * colliderRadius * ray.Direction,
                             colliderPos);
-                        var exitPoint = ((halfway - origin) * 2f) + origin;
+                        var exitPoint = ((halfway - ray.Origin) * 2f) + ray.Origin;
                         var exitPointNormal = (exitPoint - colliderPos).normalized;
 
                         // Now refract again since we've left the sphere
-                        rayDirection = rayDirection.Refract(colliderRefIndex, 1.0f, exitPointNormal);
-                        origin = exitPoint;
-                        
-                        
+                        ray.Direction = ray.Direction.Refract(colliderRefIndex, 1.0f, exitPointNormal);
+                        ray.Origin = exitPoint;
+
                         ++depth;
                         
                         continue;
@@ -183,11 +145,10 @@ namespace RayTracer
             }
         }
 
-        private static (Collider collider, Vector3 intersectionPt, Vector3 normal) GetNearestIntersection(
+        private static Intersection GetNearestIntersection(
+            Ray ray,
             List<Collider> colliders,
             Collider colliderToIgnore,
-            Vector3 origin,
-            Vector3 rayDirection, 
             ref double nearestDistance)
         {
             Collider nearestCollider = null;
@@ -199,7 +160,7 @@ namespace RayTracer
                     continue;
                 }
                 
-                var hitDistance = collider.Intersect(origin, rayDirection);
+                var hitDistance = collider.Intersect(ray.Origin, ray.Direction);
 
                 if (hitDistance >= 0.0f && hitDistance < nearestDistance)
                 {
@@ -208,19 +169,22 @@ namespace RayTracer
                 }
             }
 
-            var nearestPt = (nearestCollider == null) ? Vector3.zero : (origin + (rayDirection * (float)nearestDistance));
+            var nearestPt = (nearestCollider == null) ? Vector3.zero : ray.GetPoint(nearestDistance);
             var normal = (nearestCollider == null) ? Vector3.zero : nearestCollider.GetNormalAtPoint(nearestPt);
 
-            return (nearestCollider, nearestPt, normal);
+            return new Intersection
+            {
+                Position = nearestPt,
+                Normal = normal,
+                Collider = nearestCollider
+            };
         }
 
         private static (Color diffuse, Color specular) LightColorAffectsHitPoint(
             List<Collider> lights, 
             List<Collider> nonLights, 
-            Vector3 point, 
-            Vector3 ptNormal,
-            Vector3 cameraRayDirection,
-            RayMaterial materialHit)
+            Intersection intersection,
+            Ray ray)
         {
             // TODO: If lights have a width then you have to cast to the sides of the light to see if any of them hit
 
@@ -229,10 +193,10 @@ namespace RayTracer
             
             foreach (var light in lights)
             {
-                var ptToLight = light.Position - point;
+                var ptToLight = light.Position - intersection.Position;
 
                 // If the point is facing away from the light then we can skip it
-                if (Vector3.Dot(ptToLight, ptNormal) < 0.0f)
+                if (Vector3.Dot(ptToLight, intersection.Normal) < 0.0f)
                 {
                     continue;
                 }
@@ -253,7 +217,7 @@ namespace RayTracer
 //                        continue;
 //                    }
                     
-                    var hitDistance = nonLight.Intersect(point, ptToLight);
+                    var hitDistance = nonLight.Intersect(intersection.Position, ptToLight);
 
                     if (hitDistance >= 0.0f && hitDistance < lightHitDistance)
                     {
@@ -287,16 +251,16 @@ namespace RayTracer
                         lightColor.b = Math.Max(lightColor.b * lightPercentageThatHits, transparentColor.b);
                     }
                     
-                    var opacity = materialHit.Opacity;
+                    var opacity = intersection.Collider.Material.Opacity;
                     
                     // Handle specularity
                     {
-                        var reflect = Vector3.Reflect(ptToLight, ptNormal);
-                        var viewDot = Vector3.Dot(cameraRayDirection, reflect);
+                        var reflect = Vector3.Reflect(ptToLight, intersection.Normal);
+                        var viewDot = Vector3.Dot(ray.Direction, reflect);
 
                         if (viewDot > 0.0f)
                         {
-                            var roughness = materialHit.Roughness;
+                            var roughness = intersection.Collider.Material.Roughness;
                             var pow = (float) Math.Pow(viewDot, Math.Max(64 * (1 - roughness), 1));
                             var specAmount = Math.Max(pow, 0);
                             if (specAmount > 0.005f)
@@ -316,7 +280,7 @@ namespace RayTracer
 
                     // Diffuse lighting
                     {
-                        var rayNormalDot = Vector3.Dot(ptToLight, ptNormal);
+                        var rayNormalDot = Vector3.Dot(ptToLight, intersection.Normal);
                         var lightPercentageThatHits = rayNormalDot * opacity;
                         if (lightPercentageThatHits > 0.005f)
                         {
@@ -333,9 +297,12 @@ namespace RayTracer
             return (diffuseColor, specColor);
         }
 
-        public static Vector3 ColorToVector3(Color color)
-        {
-            return new Vector3(color.r, color.g, color.b);
-        }
+        private readonly Color _skyColor = new Color(0.4f, 0.8f, 1.0f, 1.0f);
+        private readonly Color _skyDarkColor = new Color(0.1f, 0.2f, 0.25f, 1.0f);
+
+        private readonly Color[] _pixelColors;
+        private readonly Ray[,] _rays;
+
+        private Vector2Int windowSize;
     }
 }
