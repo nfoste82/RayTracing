@@ -49,10 +49,27 @@ public class GameManager : MonoBehaviour
         _scene.CreateTestScene();
 
         _tracer = new Tracer(_mainTexture, this);
+        
+        //_shader = Shader.Find("Standard");
     }
 
     private void Update()
     {
+        var colliders = _scene.AllColliders;
+
+        // TEMP: Hack to make colliders move
+        for (int i = 0; i < colliders.Count; ++i)
+        {
+            var collider = colliders[i];
+
+            if (collider.GetBoundingRadius() > 1000f)
+            {
+                continue;
+            }
+            
+            collider.Position.y += Mathf.Sin(Time.time + i) * 0.2f;
+        }
+        
         _tracer.ProcessRenderTexture(_mainTexture, _scene, Camera.main);
     }
 

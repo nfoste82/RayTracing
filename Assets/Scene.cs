@@ -104,7 +104,7 @@ namespace RayTracer
                 Radius = 1f,
                 Material = new RayMaterial
                 {
-                    Color = new Color(0.8f, 0.9f, 1.0f, 1.0f),
+                    Color = new Color(0.5f, 1f, 1.0f, 1.0f),
                     Opacity = 1f,
                     LightEmitter = true
                 }
