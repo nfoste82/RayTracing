@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 65b41570944a4396b3b787411768d9a4, type: 3}
   m_Name: QualitySettings
   m_EditorClassIdentifier: 
-  numRayBounces: 1
+  numRayBounces: 3

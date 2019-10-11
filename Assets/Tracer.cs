@@ -83,7 +83,19 @@ namespace RayTracer
                 // Add in ambient lighting
                 diffuse = ColorExtensions.Combine(diffuse, _skyDarkColor);
 
-                var diffuseAndSpec = intersection.Collider.Material.Color * diffuse + specular;
+                Color matColor = intersection.Collider.Material.Color;
+                if (intersection.Collider.Material.CheckeredTexture)
+                {
+                    var xEven = (int)intersection.Position.x % 6 == 0;
+                    var zEven = (int)intersection.Position.z % 6 == 0;
+                    if (xEven == zEven)
+                    {
+                        matColor = intersection.Collider.Material.Color * 0.5f;
+                        matColor.a = 1.0f;
+                    }
+                }
+                
+                var diffuseAndSpec = matColor * diffuse + specular;
                 diffuseAndSpec.a = 1.0f;
 
                 ray.Color = ColorExtensions.Combine(ray.Color, diffuseAndSpec * ray.Energy);
@@ -109,7 +121,7 @@ namespace RayTracer
                     // Bounce of the opaque surface
                     ray.Origin = intersection.Position;
                     ray.Direction = Vector3.Reflect(ray.Direction, intersection.Normal);
-                    ray.Energy -= 0.8f * intersection.Collider.Material.Roughness;
+                    ray.Energy -= 0.65f * intersection.Collider.Material.Roughness;
                 }
 
                 if (ray.Energy <= 0.005f)
