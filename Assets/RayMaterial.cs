@@ -10,5 +10,6 @@ namespace RayTracer
         public float Roughness;
 
         public bool CheckeredTexture;
+        public bool LightEmitter;
     }
 }

@@ -63,7 +63,7 @@ namespace RayTracer
             {
                 double nearestPt = float.MaxValue;
 
-                var intersection = GetNearestIntersection(ray, scene.Spheres, previousCollider, ref nearestPt);
+                var intersection = GetNearestIntersection(ray, scene.AllColliders, previousCollider, ref nearestPt);
 
                 if (intersection.Collider == null)
                 {
@@ -77,28 +77,46 @@ namespace RayTracer
                     ray.Color = ColorExtensions.Combine(ray.Color, skyColorAtX * ray.Energy);
                     break;
                 }
-                
-                var (diffuse, specular) = LightColorAffectsHitPoint(scene.Lights, scene.Spheres, intersection, ray);
-
-                // Add in ambient lighting
-                diffuse = ColorExtensions.Combine(diffuse, _skyDarkColor);
 
                 Color matColor = intersection.Collider.Material.Color;
-                if (intersection.Collider.Material.CheckeredTexture)
-                {
-                    var xEven = (int)intersection.Position.x % 6 == 0;
-                    var zEven = (int)intersection.Position.z % 6 == 0;
-                    if (xEven == zEven)
-                    {
-                        matColor = intersection.Collider.Material.Color * 0.5f;
-                        matColor.a = 1.0f;
-                    }
-                }
                 
-                var diffuseAndSpec = matColor * diffuse + specular;
-                diffuseAndSpec.a = 1.0f;
+                if (intersection.Collider.Material.LightEmitter)
+                {
+                    ray.Color = ColorExtensions.Combine(ray.Color, matColor);
+                    break;
+                }
+                else
+                {
+                    var (diffuse, specular) = LightColorAffectsHitPoint(scene.Lights, scene.Spheres, intersection, ray);
 
-                ray.Color = ColorExtensions.Combine(ray.Color, diffuseAndSpec * ray.Energy);
+                    // Add in ambient lighting
+                    //diffuse = ColorExtensions.Combine(diffuse, _skyDarkColor);
+
+                    if (intersection.Collider.Material.CheckeredTexture)
+                    {
+                        var xEven = (int) intersection.Position.x % 6 == 0;
+                        var zEven = (int) intersection.Position.z % 6 == 0;
+                        if (xEven == zEven)
+                        {
+                            matColor = intersection.Collider.Material.Color * 0.5f;
+                            matColor.a = 1.0f;
+                        }
+                    }
+
+                    var diffuseAndSpec = matColor * diffuse;
+
+                    // HACK: Specular is needed for transparent materials because rays currently can't
+                    // branch, so they go through them but don't bounce off of them. Once this is fixed
+                    // then specularity can be removed.
+                    if (intersection.Collider.Material.Opacity < 1.0f)
+                    {
+                        diffuseAndSpec += specular;
+                    }
+                    
+                    diffuseAndSpec.a = 1.0f;
+
+                    ray.Color = ColorExtensions.Combine(ray.Color, diffuseAndSpec * ray.Energy);
+                }
 
                 // Stop if we've bounced the max number of times
                 if (depth >= _gameManager.Settings.numRayBounces)
@@ -279,7 +297,7 @@ namespace RayTracer
         }
 
         private readonly Color _skyColor = new Color(0.4f, 0.8f, 1.0f, 1.0f);
-        private readonly Color _skyDarkColor = new Color(0.1f, 0.2f, 0.25f, 1.0f);
+        private readonly Color _skyDarkColor = new Color(0.075f, 0.15f, 0.18f, 1.0f);
 
         private readonly Color[] _pixelColors;
         private readonly Ray[,] _rays;

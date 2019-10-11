@@ -43,8 +43,8 @@ namespace RayTracer
             
             var sphere3 = new Sphere
             {
-                Position = new Vector3(-6.0f, -15.0f, 1.0f),
-                Radius = 5f,
+                Position = new Vector3(-3.0f, -16.0f, 1.0f),
+                Radius = 1.5f,
                 Material = new RayMaterial
                 {
                     Color = Color.red,
@@ -86,28 +86,30 @@ namespace RayTracer
 
             var light1 = new Sphere
             {
-                Position = new Vector3(-20.0f, 50.0f, -20.0f),
+                Position = new Vector3(0.0f, -10.0f, 0.0f),
                 Radius = 1f,
                 Material = new RayMaterial
                 {
                     Color = new Color(1.0f, 1.0f, 0.7f, 1.0f),
-                    Opacity = 1f
+                    Opacity = 1f,
+                    LightEmitter = true
                 }
             };
             Lights.Add(light1);
             
             // Multiple lights work. Uncomment to try
-//            var light2 = new Sphere
-//            {
-//                Position = new Vector3(20.0f, 30.0f, 20.0f),
-//                Radius = 1f,
-//                Material = new RayMaterial
-//                {
-//                    Color = new Color(0.8f, 0.9f, 1.0f, 1.0f),
-//                    Opacity = 1f
-//                }
-//            };
-//            Lights.Add(light2);
+            var light2 = new Sphere
+            {
+                Position = new Vector3(7.0f, -16.0f, -3.0f),
+                Radius = 1f,
+                Material = new RayMaterial
+                {
+                    Color = new Color(0.8f, 0.9f, 1.0f, 1.0f),
+                    Opacity = 1f,
+                    LightEmitter = true
+                }
+            };
+            Lights.Add(light2);
             
             AllColliders.AddRange(Spheres);
             AllColliders.AddRange(Lights);
