@@ -1,14 +1,13 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Profiling;
 using Collider = Shapes.Collider;
 
 namespace RayTracer
 {
     public class Tracer
     {
-        private GameManager _gameManager;
+        private readonly GameManager _gameManager;
         
         public Tracer(Texture2D texture, GameManager gameManager)
         {
@@ -61,36 +60,47 @@ namespace RayTracer
 
             while (true)
             {
-                double nearestPt = float.MaxValue;
-
-                var intersection = GetNearestIntersection(ray, scene.AllColliders, previousCollider, ref nearestPt);
+                var intersection = GetNearestIntersection(ray, scene.AllColliders, previousCollider);
 
                 if (intersection.Collider == null)
                 {
+                    var skyColor = _gameManager.Settings.skyColor;
+                    var skyDarkColor = _gameManager.Settings.skyDarkColor;
+
+                    var yOverMaxY = y / (float) maxY;
+                    
+                    // TODO: We could store this per line (Y value) in memory instead of doing this per pixel each frame
                     var skyColorAtX = new Color(
-                        Mathf.Lerp(_skyColor.r, _skyDarkColor.r, y / (float)maxY),
-                        Mathf.Lerp(_skyColor.g, _skyDarkColor.g, y / (float)maxY),
-                        Mathf.Lerp(_skyColor.b, _skyDarkColor.b, y / (float)maxY),
+                        Mathf.Lerp(skyColor.r, skyDarkColor.r, yOverMaxY),
+                        Mathf.Lerp(skyColor.g, skyDarkColor.g, yOverMaxY),
+                        Mathf.Lerp(skyColor.b, skyDarkColor.b, yOverMaxY),
                         1f
                     );
-                    
+
                     ray.Color = ColorExtensions.Combine(ray.Color, skyColorAtX * ray.Energy);
                     break;
                 }
 
-                Color matColor = intersection.Collider.Material.Color;
+                var matColor = intersection.Collider.Material.Color;
                 
-                if (intersection.Collider.Material.LightEmitter)
+                // Reduce rays energy based on distance it travels.
+                // This simulates how light spreads out over a distance and loses brightness
+                ray.Energy -= Math.Max(0, (intersection.Position - ray.Origin).magnitude * _gameManager.Settings.energyLostPerUnit);
+
+                var emissive = intersection.Collider.Material.Emissive;
+                if (emissive > 0f)
                 {
-                    ray.Color = ColorExtensions.Combine(ray.Color, matColor);
+                    ray.Color = ColorExtensions.Combine(ray.Color, matColor * Math.Min(1, ray.Energy * emissive));
                     break;
                 }
                 else
                 {
+                    previousCollider = intersection.Collider;
+
                     var (diffuse, specular) = LightColorAffectsHitPoint(scene.Lights, scene.Spheres, intersection, ray);
 
                     // Add in ambient lighting
-                    //diffuse = ColorExtensions.Combine(diffuse, _skyDarkColor);
+                    diffuse = ColorExtensions.Combine(diffuse, _gameManager.Settings.ambientLight);
 
                     if (intersection.Collider.Material.CheckeredTexture)
                     {
@@ -139,7 +149,7 @@ namespace RayTracer
                     // Bounce of the opaque surface
                     ray.Origin = intersection.Position;
                     ray.Direction = Vector3.Reflect(ray.Direction, intersection.Normal);
-                    ray.Energy -= 0.65f * intersection.Collider.Material.Roughness;
+                    ray.Energy -= _gameManager.Settings.energyLostPerRoughnessOnReflect * intersection.Collider.Material.Roughness;
                 }
 
                 if (ray.Energy <= 0.005f)
@@ -154,9 +164,10 @@ namespace RayTracer
         private static Intersection GetNearestIntersection(
             Ray ray,
             List<Collider> colliders,
-            Collider colliderToIgnore,
-            ref double nearestDistance)
+            Collider colliderToIgnore)
         {
+            double nearestDistance = float.MaxValue;
+            
             Collider nearestCollider = null;
 
             foreach (var collider in colliders)
@@ -197,17 +208,20 @@ namespace RayTracer
             Color diffuseColor = Color.black;
             Color specColor = Color.black;
             
+            Color combinedLightColor = Color.black;
+
             foreach (var light in lights)
             {
                 var ptToLight = light.Position - intersection.Position;
 
-                // If the point is facing away from the light then we can skip it
-                if (Vector3.Dot(ptToLight, intersection.Normal) < 0.0f)
-                {
-                    continue;
-                }
+//                // If the point is facing away from the light then we can skip it
+//                if (Vector3.Dot(ptToLight, intersection.Normal) < 0.0f)
+//                {
+//                    continue;
+//                }
 
                 var transparentColor = Color.black;
+                transparentColor.a = 0.0f;
 
                 var lightHitDistance = Vector3Extensions.NormalizeReturnMag(ref ptToLight);
 
@@ -233,7 +247,7 @@ namespace RayTracer
                             var nonLightColor = nonLight.Material.Color;
 
                             transparentColor = ColorExtensions.Combine(transparentColor, nonLightColor);
-                            transparentColor.a = Math.Max(transparentColor.a - opacity, 0f);
+                            transparentColor.a = Math.Max(transparentColor.a, opacity);
                         }
                         else
                         {
@@ -245,18 +259,28 @@ namespace RayTracer
 
                 if (lightHitsThisPoint)
                 {
-                    var lightColor = light.Material.Color;
+                    var lightColor = light.Material.Color * light.Material.Emissive;
                     
                     if (transparentColor.a < 1f && transparentColor.a > 0f)
                     {
-                        var lightPercentageThatHits = transparentColor.a;
-
-                        lightColor = ColorExtensions.Combine(lightColor * lightPercentageThatHits, transparentColor);
+                        lightColor -= ((Color.white - transparentColor) * transparentColor.a);
+                        lightColor = Color.Lerp(lightColor, Color.black, transparentColor.a);
                     }
                     
                     var opacity = intersection.Collider.Material.Opacity;
                     
+                    var rayNormalDot = Vector3.Dot(ptToLight, intersection.Normal);
+                    var lightPercentageThatHits = rayNormalDot * opacity;
+
+                    if (lightPercentageThatHits < 0.005f)
+                    {
+                        continue;
+                    }
+                    
+                    combinedLightColor = ColorExtensions.Combine(combinedLightColor, lightColor * lightPercentageThatHits);
+                    
                     // Handle specularity
+                    if (opacity < 1f)
                     {
                         var reflect = Vector3.Reflect(ptToLight, intersection.Normal);
                         var viewDot = Vector3.Dot(ray.Direction, reflect);
@@ -278,26 +302,18 @@ namespace RayTracer
                             }
                         }
                     }
-
-                    // Diffuse lighting
-                    {
-                        var rayNormalDot = Vector3.Dot(ptToLight, intersection.Normal);
-                        var lightPercentageThatHits = rayNormalDot * opacity;
-                        if (lightPercentageThatHits > 0.005f)
-                        {
-                            var lightDiffuseColor = lightColor * lightPercentageThatHits;
-
-                            diffuseColor = ColorExtensions.Combine(lightDiffuseColor, diffuseColor);
-                        }
-                    }
                 }
+            }
+            
+            // Diffuse lighting
+            {
+                var lightDiffuseColor = combinedLightColor;
+
+                diffuseColor = ColorExtensions.Combine(lightDiffuseColor, diffuseColor);
             }
 
             return (diffuseColor, specColor);
         }
-
-        private readonly Color _skyColor = new Color(0.4f, 0.8f, 1.0f, 1.0f);
-        private readonly Color _skyDarkColor = new Color(0.075f, 0.15f, 0.18f, 1.0f);
 
         private readonly Color[] _pixelColors;
         private readonly Ray[,] _rays;

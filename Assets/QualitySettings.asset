@@ -12,4 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 65b41570944a4396b3b787411768d9a4, type: 3}
   m_Name: QualitySettings
   m_EditorClassIdentifier: 
-  numRayBounces: 3
+  numRayBounces: 2
+  energyLostPerUnit: 0.005
+  skyColor: {r: 0.16954434, g: 0.22628161, b: 0.2830189, a: 1}
+  skyDarkColor: {r: 0.124288, g: 0.16922508, b: 0.1981132, a: 1}
+  ambientLight: {r: 0, g: 0, b: 0, a: 1}

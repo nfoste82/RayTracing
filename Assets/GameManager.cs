@@ -66,8 +66,8 @@ public class GameManager : MonoBehaviour
             {
                 continue;
             }
-            
-            collider.Position.y += Mathf.Sin(Time.time + i) * 0.2f;
+
+            collider.Position.y += Mathf.Sin(Time.time + i) * Time.deltaTime;
         }
         
         _tracer.ProcessRenderTexture(_mainTexture, _scene, Camera.main);
