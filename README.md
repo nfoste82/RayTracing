@@ -13,5 +13,6 @@ like:
 * Anti-aliasing
 * Caustics
 * Glossy specularity
+* Ray branching (a single ray partially reflecting and also refracting). This would make transparent objects reflect, which they currently don't do very well.
 
 ![SampleScene](https://imgur.com/eypzVFr.png)
