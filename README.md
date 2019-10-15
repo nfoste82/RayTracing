@@ -13,3 +13,5 @@ like:
 * Anti-aliasing
 * Caustics
 * Glossy specularity
+
+![SampleScene](https://imgur.com/eypzVFr.png)
